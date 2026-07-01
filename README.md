@@ -38,7 +38,7 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 6. Redémarrez Home Assistant
 
 ### Installation manuelle
-1. Téléchargez la dernière version depuis [GitHub Releases](https://github.com/Dan4Jer/hass-eedomus/releases)
+1. Téléchargez la dernière version depuis [GitHub Releases] (https://github.com/fmo01/hass-eedomus)
 2. Extrayez le fichier dans `custom_components/eedomus/`
 3. Redémarrez Home Assistant
 
@@ -102,7 +102,7 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 6. Restart Home Assistant
 
 ### Manual Installation
-1. Download the latest version from [GitHub Releases](https://github.com/Dan4Jer/hass-eedomus/releases)
+1. Download the latest version from [GitHub Releases](https://github.com/fmo01/hass-eedomus/releases)
 2. Extract the file to `custom_components/eedomus/`
 3. Restart Home Assistant
 
