@@ -31,7 +31,7 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 
 ### Via HACS (Méthode recommandée)
 1. Dans HACS, allez dans les 3 points en haut à gauche puis "GitHub"
-2. Ajoutez un dépôt personnalisé avec l'URL: `https://github.com/Dan4Jer/hass-eedomus`
+2. Ajoutez un dépôt personnalisé avec l'URL: https://github.com/fmo01/hass-eedomus
 3. Allez dans **HACS** > **Intégrations**
 4. Recherchez "Eedomus"
 5. Cliquez sur **Installer**
