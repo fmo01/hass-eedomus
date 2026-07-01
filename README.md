@@ -1,10 +1,10 @@
 # Intégration eedomus pour Home Assistant
 [![HACS Validated](https://img.shields.io/badge/HACS-Validated-green.svg)](https://github.com/hacs/integration)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-0.14.2-blue.svg)](https://github.com/Dan4Jer/hass-eedomus/releases/tag/v0.14.2)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/Dan4Jer/hass-eedomus/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/v/release/Dan4Jer/hass-eedomus?label=latest)](https://github.com/Dan4Jer/hass-eedomus/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/Dan4Jer/hass-eedomus/total?logo=github&style=flat-square)](https://github.com/Dan4Jer/hass-eedomus/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.20.1-blue.svg)](https://github.com/fmo01/hass-eedomus/releases/tag/v0.14.2)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/fmo01/hass-eedomus/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/fmo01/hass-eedomus?label=latest)](https://github.com/fmo01/hass-eedomus/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/fmo01/hass-eedomus/total?logo=github&style=flat-square)](https://github.com/fmo01/hass-eedomus/releases/latest)
 
 **hass-eedomus** : synchronise la box **eedomus** avec **Home Assistant**, simplement et sans compromis.
 
@@ -95,7 +95,7 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 
 ### Via HACS (Recommended)
 1. In HACS config go to the 3 dots in top left then GitHub
-2. Add a custom repository with URL: https://github.com/Dan4Jer/hass-eedomus
+2. Add a custom repository with URL: https://github.com/fmo01/hass-eedomus
 3. Go to **HACS** > **Integrations**
 4. Search for "Eedomus"
 5. Click **Install**
@@ -138,13 +138,13 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 2. Then add a custom repository
 <img width="318" height="469" alt="custom" src="https://github.com/user-attachments/assets/dbf5c1be-46b0-412d-8497-300b9ad9840a" />
 
-3.  click on add after set the right url https://github.com/Dan4Jer/hass-eedomus
+3.  click on add after set the right url https://github.com/fmo01/hass-eedomus
 4. Go to **HACS** > **Integrations**
 5. Search for "Eedomus"
 6. Click **Install**
 
 ### Manual
-1. Download the latest version from [GitHub Releases](https://github.com/Dan4Jer/hass-eedomus/releases)
+1. Download the latest version from [GitHub Releases](https://github.com/fmo01/hass-eedomus/releases)
 2. Extract the file to `custom_components/eedomus/`
 4. Restart Home Assistant
 
@@ -2042,8 +2042,8 @@ graph LR
 ---
 
 ## Contact
-📧 [Ouvrir une issue](https://github.com/Dan4Jer/hass-eedomus/issues) pour toute question.
-👤 [Mon profil GitHub](https://github.com/Dan4Jer) ouvert à l'occasion de ce projet.
+📧 [Ouvrir une issue](https://github.com/fmo01/hass-eedomus/issues) pour toute question.
+👤 [Mon profil GitHub](https://github.com/fmo01) ouvert à l'occasion de ce projet.
 
 ---
 
@@ -2080,8 +2080,8 @@ Permettre le test et le déploiement de versions instables via HACS avant leur s
   - Exemple :
     ```json
     {
-      "version": "0.13.0-unstable",
-      "release": "https://github.com/Dan4Jer/hass-eedomus/releases/tag/0.13.0-unstable"
+      "version": "0.20.1",
+      "release": "https://github.com/fmo01/hass-eedomus/releases/tag/0.13.0-unstable"
     }
     ```
 
