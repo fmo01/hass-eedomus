@@ -8,9 +8,18 @@
 
 **hass-eedomus** : synchronise la box **eedomus** avec **Home Assistant**, simplement et sans compromis.
 
-Cette intégration permet de remonter tes périphériques eedomus (Z-Wave, Zigbee, etc.) dans Home Assistant comme des entités natives (sensors, lights, covers…), sans remplacer la box. Pas de magie : elle utilise l’API eedomus pour synchroniser les états et commandes, avec un système de mapping YAML pour adapter chaque périphérique à tes besoins.
+Cette intégration permet de remonter tes périphériques eedomus (Z-Wave, Zigbee, etc.) dans Home Assistant comme des entités natives (sensors, lights, covers…), sans remplacer la box. 
+Pas de magie : elle utilise l’API eedomus pour synchroniser les états et commandes, avec un système de mapping YAML pour adapter chaque périphérique à tes besoins.
 
 C'est la bonne solution pour compléter eedomus avec les automatisations et le dashboard de Home Assistant, sans tout migrer.
+
+j'ai fais un fork du projet Dan4Jer/hass-eedomus pour l'adapter a mes cas d'usage :
+* multi-box
+* thermostat Thermostat (HRT4-ZW / SRT321) 
+* commande de volets en 433Mhz par RFPlayer
+* divers correction/adaptation a l'occasion de messages qui me dérangaient 
+* prise en compte de certain retours de https://github.com/Ecirbaf69
+
 
 ## 📥 Installation
 
