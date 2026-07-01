@@ -619,7 +619,7 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
 
         for periph_id in all_periph_ids:
             if not periph_id in aggregated_data:
-                _LOGGER.warn("This periph_id is unknown %d, please do a reload", periph_id)
+                _LOGGER.warning("This periph_id is unknown %d, please do a reload", periph_id)
                 aggregated_data[periph_id] = {}
 
             # Ajout des données de peripherals_caract_dict (si existantes)
@@ -790,6 +790,10 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             "light",
             "switch",
             "binary_sensor",
+            "number",
+            "cover",
+            "climate",
+            "select",
         ]
 
         if ha_entity in dynamic_types:
@@ -1328,7 +1332,7 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             else:
                 # Try next best value if PHP fallback is not enabled
                 next_value = self.next_best_value(periph_id, value)
-                _LOGGER.warn(
+                _LOGGER.warning(
                     "🔄 Retry enabled - trying next best value (%s => %s) for %s (%s)",
                     value,
                     next_value,

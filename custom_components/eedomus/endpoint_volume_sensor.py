@@ -8,15 +8,27 @@ from datetime import datetime
 import logging
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+from homeassistant.const import EntityCategory
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+# --- MODIFICATION: Logique unifiée d'extraction de l'IP ---
+def get_clean_box_name_from_coord(coordinator) -> tuple[str, str]:
+    """Extrait proprement l'IP pour formater le nom de la Box."""
+    host = str(coordinator.config_entry.data.get("host", coordinator.config_entry.title))
+    if "Eedomus (" in host:
+        try:
+            host = host.split("Eedomus (")[1].split(")")[0]
+        except Exception:
+            pass
+    return host, f"Box eedomus ({host})"
+# --------------------------------------------------------
 
 class EedomusEndpointVolumeSensor(CoordinatorEntity, SensorEntity):
     """Base class for endpoint volume sensors."""
@@ -25,32 +37,34 @@ class EedomusEndpointVolumeSensor(CoordinatorEntity, SensorEntity):
         """Initialize the endpoint volume sensor."""
         super().__init__(coordinator)
         self._endpoint_name = endpoint_name
-        self._attr_native_unit_of_measurement = "items"
+        
+        # --- MODIFICATION: Extraction propre de l'IP pour garantir des identifiants uniques ---
+        host, box_name = get_clean_box_name_from_coord(coordinator)
+        box_id = coordinator.config_entry.entry_id
+        
+        # Configuration des attributs uniques par instance
+        self._attr_name = f"Eedomus {endpoint_name} Volume KB ({host})"
+        
+        slug = endpoint_name.lower().replace(" ", "_").replace("eedomus_", "")
+        # unique_id basé sur l'entry_id pour éviter les collisions multi-box
+        self._attr_unique_id = f"eedomus_{box_id}_{slug}_volume_kb"
+        
+        self._attr_native_unit_of_measurement = "KB"
         self._attr_icon = icon
         self._attr_device_class = None  # Not a standard device class for volume
         self._attr_state_class = SensorStateClass.MEASUREMENT
-        from homeassistant.const import EntityCategory
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_has_entity_name = True
         
-        # Set device info to attach to eedomus box
+        # Rattachement strict à l'appareil unique de la Box
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, "eedomus_box_main")},
-            name="Box eedomus",
+            identifiers={(DOMAIN, f"eedomus_box_{box_id}")},
+            name=box_name,
             manufacturer="Eedomus",
             model="Eedomus Box",
             sw_version="Unknown",
         )
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return f"Eedomus {self._endpoint_name} Volume KB"
-
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID of the sensor."""
-        return f"eedomus_{self._endpoint_name.lower()}_volume_kb"
+        # ----------------------------------------------------------------------------------
 
     @property
     def native_value(self):
@@ -59,11 +73,6 @@ class EedomusEndpointVolumeSensor(CoordinatorEntity, SensorEntity):
             bytes_value = int(self.coordinator._endpoint_data_sizes.get(self._endpoint_name, 0))
             return round(bytes_value / 1024, 2)
         return 0
-
-    @property
-    def native_unit_of_measurement(self):
-        """Return the unit of measurement."""
-        return "KB"
 
     @property
     def extra_state_attributes(self):
@@ -161,16 +170,19 @@ class EedomusTotalDataVolumeSensor(EedomusEndpointVolumeSensor):
 
 async def async_setup_endpoint_volume_sensors(hass: HomeAssistant, coordinator, device_registry):
     """Set up endpoint volume sensors and attach them to the eedomus box device."""
+    host, box_name = get_clean_box_name_from_coord(coordinator)
     
     # Get or create the main eedomus box device
+    # --- MODIFICATION: Utilisation de l'entry_id pour l'identifiant d'appareil et du nom unifié ---
     box_device = device_registry.async_get_or_create(
         config_entry_id=coordinator.config_entry.entry_id,
-        identifiers={(DOMAIN, "eedomus_box_main")},
-        name="Box eedomus",
+        identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
+        name=box_name,
         manufacturer="Eedomus",
         model="Eedomus Box",
         sw_version="Unknown",
     )
+    # ------------------------------------------------------------------------------------------
 
     # Create volume sensors
     sensors = [

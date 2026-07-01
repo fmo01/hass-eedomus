@@ -19,6 +19,8 @@ from .webhook import EedomusWebhookView
 from .const import (
 
     CONF_API_HOST,
+    CONF_API_USER,
+    CONF_API_SECRET,
     CONF_API_PROXY_DISABLE_SECURITY,
 
     CONF_ENABLE_API_EEDOMUS,
@@ -72,6 +74,19 @@ except Exception as e:
     VERSION = "unknown"
     _LOGGER.warning("Failed to read version from manifest.json: %s", e)
 
+# --- AJOUT: Fonction d'extraction du nom de la box ---
+def get_clean_box_name(entry: ConfigEntry) -> str:
+    """Extrait proprement l'IP pour formater le nom de la Box.
+    Utilisée pour unifier le nommage de l'appareil eedomus.
+    """
+    host = entry.data.get("host") or entry.data.get("api_host") or entry.title
+    if "Eedomus (" in host:
+        try:
+            host = host.split("Eedomus (")[1].split(")")[0]
+        except Exception:
+            pass
+    return f"Box eedomus ({host})" if host else "Box eedomus"
+# ---------------------------------------------------
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up eedomus from a config entry.
@@ -87,12 +102,70 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await async_migrate_entry(hass, entry)
             # Reload the entry to apply migration changes
-            await hass.config_entries.async_reload(entry.entry_id)
+            hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
             return False  # Setup will be retried after reload
         except Exception as e:
             _LOGGER.error("Migration failed: %s", e)
             return False
+    # =====================================================================
+    # 🛠️ AUTO-RÉPARATION DU UNIQUE_ID (SANS CHANGEMENT DE VERSION)
+    # =====================================================================
+    if entry.unique_id is None or entry.unique_id == "":
+        api_host = entry.data.get("api_host")
+        if api_host:
+            # On recrée le format d'unique_id cible utilisé par ton config_flow
+            calculated_unique_id = f"eedomus_{api_host}"
+            _LOGGER.info(
+                "Fixing missing unique_id for entry %s. Setting to: %s", 
+                entry.entry_id, 
+                calculated_unique_id
+            )
+            # Cette ligne met à jour la mémoire ET écrit directement dans core.config_entries
+            hass.config_entries.async_update_entry(entry, unique_id=calculated_unique_id)
+    # =====================================================================
 
+    # =====================================================================
+    # 🛠️ AUTO-MIGRATION DES CLÉS À CHAUD (SANS CHANGEMENT DE VERSION)
+    # =====================================================================
+    if "api_eedomus" in entry.data or "api_eedomus" in entry.options or "api_proxy" in entry.data or "api_proxy" in entry.options:
+        _LOGGER.info("Modernisation automatique des clés pour l'entrée %s", entry.entry_id)
+        
+        new_data = {**entry.data}
+        new_options = {**entry.options}
+        
+        # Bascule api_eedomus -> enable_api_eedomus
+        if "api_eedomus" in new_data:
+            new_data[CONF_ENABLE_API_EEDOMUS] = new_data.pop("api_eedomus")
+        if "api_eedomus" in new_options:
+            new_options[CONF_ENABLE_API_EEDOMUS] = new_options.pop("api_eedomus")
+            
+        # Bascule api_proxy -> enable_api_proxy
+        if "api_proxy" in new_data:
+            new_data[CONF_ENABLE_API_PROXY] = new_data.pop("api_proxy")
+        if "api_proxy" in new_options:
+            new_options[CONF_ENABLE_API_PROXY] = new_options.pop("api_proxy")
+            
+        # CETTE LIGNE FORCE LA SAUVEGARDE IMMÉDIATE DANS LE FICHIER JSON
+        hass.config_entries.async_update_entry(entry, data=new_data, options=new_options)
+
+    # =====================================================================
+    # 🔄 SYNCHRONISATION DES CLÉS DE CONNEXION MODIFIÉES (OPTIONS -> DATA)
+    # =====================================================================
+    if CONF_API_HOST in entry.options or CONF_API_USER in entry.options or CONF_API_SECRET in entry.options:
+        new_data = {**entry.data}
+        changes_detected = False
+        
+        for key in (CONF_API_HOST, CONF_API_USER, CONF_API_SECRET):
+            if key in entry.options and entry.options[key] != entry.data.get(key):
+                new_data[key] = entry.options[key]
+                changes_detected = True
+                
+        if changes_detected:
+            _LOGGER.info("🔄 Synchronisation des nouveaux identifiants modifiés vers entry.data pour %s", entry.entry_id)
+            hass.config_entries.async_update_entry(entry, data=new_data)
+    # =====================================================================
+
+    # =====================================================================
     # Check which modes are enabled
     # First check options (updated via options flow), then data (initial config), then defaults
     api_eedomus_enabled = entry.options.get(
@@ -144,16 +217,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             from homeassistant.helpers.device_registry import async_get as async_get_device_registry
             device_registry = async_get_device_registry(hass)
             
-            # Create the main eedomus box device
+            # --- MODIFICATION: Utilisation de get_clean_box_name pour un nommage unifié ---
+            box_name = get_clean_box_name(entry)
             box_device = device_registry.async_get_or_create(
                 config_entry_id=entry.entry_id,
-                identifiers={(DOMAIN, "eedomus_box_main")},
-                name="Box eedomus",
+                identifiers={(DOMAIN, f"eedomus_box_{entry.entry_id}")},
+                name=box_name,  # Utilise le nom extrait (ex: Box eedomus (192.168.1.10))
                 manufacturer="Eedomus",
                 model="Eedomus Box",
                 sw_version="Unknown",
             )
-            _LOGGER.info("Created main eedomus box device: %s", box_device.id)
+            _LOGGER.info("Created main eedomus box device: %s (%s)", box_device.id, box_name)
+            # -----------------------------------------------------------------------------
         except Exception as e:
             _LOGGER.warning("Failed to create main eedomus box device: %s", e)
 
@@ -391,7 +466,7 @@ async def async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None
             coordinator.update_interval = timedelta(seconds=new_scan_interval)
             _LOGGER.info(f"🔄 Updated scan interval to {new_scan_interval} seconds")
     
-    await hass.config_entries.async_reload(entry.entry_id)
+    hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
 
 
 
@@ -712,5 +787,3 @@ async def async_cleanup_unused_entities(hass):
             "success": False,
             "error": str(e)
         }
-
-

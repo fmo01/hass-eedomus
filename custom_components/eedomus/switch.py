@@ -163,7 +163,7 @@ async def async_setup_entry(
             continue  # Skip creating switch entity, will be handled by sensor setup
 
         _LOGGER.debug(
-            "Go for a switch !!! %s (%s) mapping=%s",
+            "Create a %s (%s) mapping=%s",
             periph["name"],
             periph_id,
             ha_entity,
@@ -180,7 +180,6 @@ class EedomusSwitch(EedomusEntity, SwitchEntity):
     def __init__(self, coordinator, periph_id):
         """Initialize the switch."""
         super().__init__(coordinator, periph_id)
-        _LOGGER.debug("Initializing switch entity for periph_id=%s", periph_id)
 
     @property
     def is_on(self):
@@ -194,10 +193,15 @@ class EedomusSwitch(EedomusEntity, SwitchEntity):
         _LOGGER.debug(
             "Switch %s is_on: %s name=%s",
             self._periph_id,
-            periph_data.get("last_value"),
+            value,
             periph_data.get("name"),
         )
-        return value == "100"
+        
+        # Sécurité : On convertit en chaîne de caractères et on nettoie
+        val_str = str(value).strip().lower() if value is not None else ""
+        
+        # Assure la compatibilité avec TOUS les types de switchs eedomus (1, 100, on, marche)
+        return val_str in ["1", "100", "on", "marche", "true"]
 
     async def async_turn_on(self, **kwargs):
         """Turn the switch on."""

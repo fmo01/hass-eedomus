@@ -99,6 +99,19 @@ usage_id_mappings:
       preset_modes: []
       supported_features:
       - target_temperature
+  '16':
+    ha_entity: sensor
+    ha_subtype: text
+    justification: Miscellaneous eedomus app data program
+    is_dynamic: false
+    entity_specifics:
+      entity_class: text_sensor
+      value_mapping: dynamic_from_values
+      icon: mdi:motion-sensor
+      device_class: enum
+      value_icons:
+        '0': mdi:motion-sensor-off
+        '12': mdi:motion-sensor
   '18':
     ha_entity: sensor
     ha_subtype: text
@@ -195,6 +208,13 @@ usage_id_mappings:
         '5': mdi:weather-night
         '6': mdi:home-remove
         '7': mdi:weather-sunrise
+  '32':
+    ha_entity: sensor
+    ha_subtype: pressure
+    device_class: atmospheric_pressure
+    unit_of_measurement: hPa
+    state_class: measurement
+    justification: "Baromètre "
   '35':
     ha_entity: sensor
     ha_subtype: text
@@ -215,6 +235,13 @@ usage_id_mappings:
     ha_subtype: heating
     justification: Heating device (Fil pilote) - usage_id=38 for French heating systems
     is_dynamic: false
+  # Pluviomètre / Intensité des précipitations
+  '41':
+    ha_entity: sensor
+    ha_subtype: precipitation
+    device_class: precipitation_intensity
+    unit_of_measurement: mm/h
+    state_class: measurement
   '42':
     ha_entity: select
     ha_subtype: shutter_group
@@ -335,6 +362,11 @@ usage_id_mappings:
       value_mapping: dynamic_from_values
       icon: mdi:calendar-today
       device_class: enum
+  '119':
+    ha_entity: sensor
+    ha_subtype: text
+    justification: Miscellaneous eedomus app data with RFPlayer Jamming detect
+    is_dynamic: false
   '127':
     ha_entity: button
     ha_subtype: camera_trigger

@@ -1,13 +1,14 @@
 """Sensor entity for eedomus integration."""
 
 from __future__ import annotations
-
+from datetime import datetime
 import logging
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.const import EntityCategory
 
 from .const import DOMAIN, SENSOR_DEVICE_CLASSES, COORDINATOR
 from .entity import EedomusEntity, map_device_to_ha_entity
@@ -26,6 +27,17 @@ DEVICE_CLASS_UNITS = {
     "current": "A",
 }
 
+# --- AJOUT: Fonction d'extraction du nom de la box ---
+def get_clean_box_name(entry: ConfigEntry) -> tuple[str, str]:
+    """Extrait proprement l'IP pour formater le nom de la Box."""
+    host = entry.data.get("host") or entry.title
+    if "Eedomus (" in host:
+        try:
+            host = host.split("Eedomus (")[1].split(")")[0]
+        except Exception:
+            pass
+    return host, f"Box eedomus ({host})"
+# ---------------------------------------------------
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
@@ -42,24 +54,16 @@ async def async_setup_entry(
         _LOGGER.error("Coordinator not found for entry %s", entry.entry_id)
         return False
     
+    # 🌟 SÉCURITÉ MULTI-BOX : On lie l'entry au coordinator pour la rendre accessible partout
+    coordinator.config_entry = entry
+
     entities = []
 
-    # Get all peripherals and build parent-to-children mapping similar to light.py
-    all_peripherals = coordinator.get_all_peripherals()
-    parent_to_children = {}
-
-    for periph_id, periph in all_peripherals.items():
-        if periph.get("parent_periph_id"):
-            parent_id = periph["parent_periph_id"]
-            if parent_id not in parent_to_children:
-                parent_to_children[parent_id] = []
-            parent_to_children[parent_id].append(periph)
-        if not "ha_entity" in coordinator.data[periph_id]:
-            eedomus_mapping = map_device_to_ha_entity(periph, coordinator.data, coordinator=coordinator)
-            coordinator.data[periph_id].update(eedomus_mapping)
-            # S'assurer que le mapping est enregistré dans le registre global
-            from .entity import _register_device_mapping
-            _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
+    # Get all peripherals (Mapping is now managed globally by the coordinator's Phase 3)
+    all_peripherals = getattr(coordinator, 'data', {})
+    
+    # Get parent-to-children mapping built globally by the coordinator
+    parent_to_children = getattr(coordinator, 'parent_child_relations', {})
 
     # Handle parent-child relationships for sensors similar to light.py
     for periph_id, periph in all_peripherals.items():
@@ -78,12 +82,11 @@ async def async_setup_entry(
                     "ha_subtype": "energy",
                     "justification": "Energy consumption meter (usage_id=26)",
                 }
-            # Removed usage_id=82 mapping as it's now handled by the main mapping system as "select"
             if not eedomus_mapping is None:
                 coordinator.data[periph_id].update(eedomus_mapping)
                 _LOGGER.debug(
                     "Created energy sensor for %s (%s) - consumption monitoring",
-                    periph["name"],
+                    periph.get("name", "Unknown"),
                     periph_id,
                 )
 
@@ -97,28 +100,28 @@ async def async_setup_entry(
             continue
 
         _LOGGER.debug(
-            "Creating sensor entity for %s (periph_id=%s) mapping=%s",
-            periph["name"],
-            periph_id,
-            coordinator.data[periph_id],
+            "Creating sensor entity for %s (periph_id=%s)",
+            periph.get("name", "Unknown"),
+            periph_id
         )
 
         # Check if this is a text sensor with dynamic value mapping
         entity_specifics = coordinator.data[periph_id].get("entity_specifics", {})
         if entity_specifics.get("value_mapping") == "dynamic_from_values":
             _LOGGER.info("🆕 Creating dynamic text sensor for %s (%s)", 
-                        periph["name"], periph_id)
+                        periph.get("name", "Unknown"), periph_id)
             entities.append(EedomusTextSensor(coordinator, periph_id))
             continue
 
         # Check if this sensor has children that should be aggregated
         if periph_id in parent_to_children and len(parent_to_children[periph_id]) > 0:
             # Create aggregated sensor entity (similar to RGBW light)
+            child_devices = [all_peripherals[c_id] for c_id in parent_to_children[periph_id] if c_id in all_peripherals]
             entities.append(
                 EedomusAggregatedSensor(
                     coordinator,
                     periph_id,
-                    parent_to_children[periph_id],
+                    child_devices,
                 )
             )
         else:
@@ -126,11 +129,9 @@ async def async_setup_entry(
             entities.append(EedomusSensor(coordinator, periph_id))
 
     # Create battery sensor entities for devices with battery information
-    # EXCEPT for children that should be mapped as other sensor types
     for periph_id, periph in all_peripherals.items():
         battery_level = periph.get("battery")
 
-        # Debug: Log all devices with battery info
         if battery_level:
             _LOGGER.debug(
                 "🔋 Battery info found for %s (%s): %s",
@@ -139,16 +140,17 @@ async def async_setup_entry(
                 battery_level,
             )
 
-        # Check if device has valid battery information
         if battery_level and str(battery_level).strip():
             try:
                 battery_value = int(battery_level)
                 if 0 <= battery_value <= 100:
-                    # Skip if this device should be mapped as a different sensor type
-                    # based on usage_id (children of motion sensors, etc.)
-                    ha_entity = coordinator.data[periph_id].get("ha_entity")
-                    usage_id = periph.get("usage_id")
-
+                    parent_id = periph.get("parent_periph_id")
+                    if parent_id and parent_id in all_peripherals:
+                        parent_battery = all_peripherals[parent_id].get("battery")
+                        if parent_battery and str(parent_battery) == str(battery_level):
+                            _LOGGER.debug("⏭️ Skipping duplicate battery for child %s (same as parent %s)", periph_id, parent_id)
+                            continue
+                    
                     # Create battery sensor entity
                     battery_entity = EedomusBatterySensor(coordinator, periph_id)
                     entities.append(battery_entity)
@@ -164,46 +166,49 @@ async def async_setup_entry(
                     battery_level,
                 )
 
-    # Add timing sensors if they exist in the coordinator
+    # --- SUPPRESSION DES BLOCS de TIMING ET VOLUME D'ICI ---
+    # Ces capteurs sont désormais gérés de bout-en-bout (nom, id unique et rattachement d'appareil)
+    # dans leurs fichiers respectifs lors de leur création (async_setup_refresh_timing_sensors, etc.).
+    # Il suffit de les ajouter à la liste.
+    
     if hasattr(coordinator, '_timing_sensors') and coordinator._timing_sensors:
         entities.extend(coordinator._timing_sensors)
-        _LOGGER.info("📊 Added %d refresh timing sensors", len(coordinator._timing_sensors))
+        _LOGGER.info("📊 Added %d refresh timing sensors to Box", len(coordinator._timing_sensors))
     
-    # Add volume sensors if they exist in the coordinator
     if hasattr(coordinator, '_volume_sensors') and coordinator._volume_sensors:
-        _LOGGER.debug("📊 Found %d volume sensors in coordinator, adding to entities", len(coordinator._volume_sensors))
         entities.extend(coordinator._volume_sensors)
-        _LOGGER.info("📊 Added %d endpoint volume sensors", len(coordinator._volume_sensors))
+        _LOGGER.info("📊 Added %d endpoint volume sensors to Box", len(coordinator._volume_sensors) )
     else:
         _LOGGER.warning("⚠️  No volume sensors found in coordinator (hasattr: %s, value: %s)", 
                        hasattr(coordinator, '_volume_sensors'), 
                        getattr(coordinator, '_volume_sensors', 'N/A'))
+    # -----------------------------------------------------
     
     async_add_entities(entities)
 
-
 def is_system_sensor(periph, mapping=None):
     """Check if a peripheral is a system sensor that should be attached to eedomus box."""
-    periph_id = periph.get("periph_id")  # Correction: periph_id au lieu de usage_id
+    if not periph:
+        return False
+        
     name = periph.get("name", "").lower()
     
-    # First check if mapping explicitly marks this as internal box sensor
+    # 1. Vérification explicite via le mapping personnalisé YAML (la méthode la plus propre)
     if mapping and mapping.get("internal_box_eedomus", False):
         return True
     
-    # System sensors by periph_id (d'après les logs)
-    system_periph_ids = {"1061603", "1061604", "1061606"}  # CPU, Espace libre, Messages
-    
-    # Check by periph_id
-    if periph_id in system_periph_ids:
-        return True
-    
-    # Check by name patterns
-    if "box" in name or "eedomus" in name:
+    # 2. Filtrage par nom strict (évite le "in" générique pour ne pas intercepter des périphériques tiers)
+    system_names = [
+        "box eedomus cpu", 
+        "eedomus espace libre", 
+        "box eedomus espace libre", 
+        "eedomus notifications"
+    ]
+    if name in system_names:
         return True
         
     return False
-
+    
 
 class EedomusSensor(EedomusEntity, SensorEntity):
     """Representation of an eedomus sensor."""
@@ -222,35 +227,30 @@ class EedomusSensor(EedomusEntity, SensorEntity):
             periph_id,
         )
 
-        # Check if this is a system sensor and should be attached to eedomus box
-        # Get the mapping for this device to check internal_box_eedomus parameter
-        from .entity import map_device_to_ha_entity
         periph_data = self._get_periph_data()
         all_devices = self.coordinator._all_peripherals if hasattr(self.coordinator, '_all_peripherals') else {}
         device_mapping = map_device_to_ha_entity(periph_data, all_devices, coordinator=self.coordinator) if periph_data else {}
         
+        # --- MODIFICATION: Rattachement des capteurs système à l'appareil Box unifié ---
         if is_system_sensor(periph_data, device_mapping):
+            host, box_name = get_clean_box_name(coordinator.config_entry)
+            
             self._attr_device_info = DeviceInfo(
-                identifiers={(DOMAIN, "eedomus_box_main")},
-                name="Box eedomus",
+                identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
+                name=box_name,
                 manufacturer="Eedomus",
                 model="Eedomus Box",
                 sw_version="Unknown",
             )
             _LOGGER.info("🔗 Attached system sensor %s to Box eedomus", periph_info.get("name", "unknown"))
-
-        # Set sensor-specific attributes based on ha_subtype
-        # Use ha_subtype from device_mapping if available (to apply specific mappings)
-        if device_mapping and periph_id == "1061604":  # Debug for Espace libre Box
-            _LOGGER.debug("DEBUG: device_mapping for 1061604: %s", device_mapping)
-        periph_type = device_mapping.get("ha_subtype") if device_mapping and "ha_subtype" in device_mapping else periph_info.get("ha_subtype")
-        if periph_id == "1061604":  # Debug for Espace libre Box
-            _LOGGER.debug("DEBUG: periph_type for 1061604: %s (from device_mapping: %s, from periph_info: %s)", 
-                        periph_type, device_mapping.get("ha_subtype") if device_mapping else "None", periph_info.get("ha_subtype"))
+        # -----------------------------------------------------------------------------
 
         # Set default device class for all sensors
         self._attr_device_class = None
         self._attr_native_unit_of_measurement = None
+
+        # ✅ CORRECTION : Définition de periph_type (qui manquait dans votre fichier !)
+        periph_type = device_mapping.get("ha_subtype")
 
         if periph_type == "temperature":
             self._attr_device_class = "temperature"
@@ -276,7 +276,6 @@ class EedomusSensor(EedomusEntity, SensorEntity):
         elif periph_type == "text":
             # Text sensors explicitly have no device class
             pass
-        # Add more specific types as needed
 
         # Set icon from entity_specifics if available
         entity_specifics = periph_info.get("entity_specifics", {})
@@ -303,36 +302,34 @@ class EedomusSensor(EedomusEntity, SensorEntity):
             value,
         )
 
-        # Check if this is a text sensor - return as-is without conversion
+        # ✅ CORRECTION ANTI-CRASH "Silvère" : On intercepte le texte proprement avec vos logs d'origine
         if self._attr_device_class == "text" or (
             hasattr(self, "_attr_ha_subtype") and self._attr_ha_subtype == "text"
-        ):
+        ) or self.coordinator.data.get(self._periph_id, {}).get("ha_subtype") == "text":
             _LOGGER.debug(
                 "📝 Text sensor %s (periph_id=%s) - returning raw value: '%s'",
-                self.coordinator.data[self._periph_id].get("name", "unknown"),
+                self.coordinator.data.get(self._periph_id, {}).get("name", "unknown"),
                 self._periph_id,
                 value,
             )
-            return value
+            return str(value) if value is not None else None
 
         # Handle empty or invalid values
         if not value or value == "":
             _LOGGER.debug(
                 "Missing or empty value for sensor %s (periph_id=%s)",
-                self.coordinator.data[self._periph_id].get("name", "unknown"),
+                self.coordinator.data.get(self._periph_id, {}).get("name", "unknown"),
                 self._periph_id,
             )
-            return None  # Return None to indicate unavailable value
+            return None
 
         # Handle non-standard value formats (e.g., "8 (31)")
         if isinstance(value, str) and "(" in value:
-            # Extract the first part of the value (e.g., "8" from "8 (31)")
             value = value.split("(")[0].strip()
             _LOGGER.debug(
-                "Non-standard value format corrected for sensor %s (periph_id=%s): %s -> %s",
-                self.coordinator.data[self._periph_id].get("name", "unknown"),
+                "Non-standard value format corrected for sensor %s (periph_id=%s): %s",
+                self.coordinator.data.get(self._periph_id, {}).get("name", "unknown"),
                 self._periph_id,
-                value,
                 value,
             )
 
@@ -344,32 +341,28 @@ class EedomusSensor(EedomusEntity, SensorEntity):
         else:
             _LOGGER.debug(
                 "Non-numeric value for sensor %s (periph_id=%s): '%s' - returning as None",
-                self.coordinator.data[self._periph_id].get("name", "unknown"),
+                self.coordinator.data.get(self._periph_id, {}).get("name", "unknown"),
                 self._periph_id,
                 value,
             )
-            return None  # Return None if not numeric
+            return None
 
     @property
     def device_class(self):
         """Return the device class of the sensor."""
-        # Use the device_class set in __init__ or fall back to dynamic detection
-        if hasattr(self, "_attr_device_class"):
+        periph_data = self.coordinator.data.get(self._periph_id, {})
+        
+        # ✅ PRIORITÉ 1 : Support du custom YAML (ex: atmospheric_pressure)
+        if "device_class" in periph_data:
+            return periph_data["device_class"]
+
+        # ✅ PRIORITÉ 2 : (VOTRE CODE RÉPARÉ avec "is not None" pour éviter les faux positifs)
+        if hasattr(self, "_attr_device_class") and self._attr_device_class is not None:
             return self._attr_device_class
 
-        periph_info = self.coordinator.data[self._periph_id]
-        value_type = periph_info.get("value_type")
-        unit = periph_info.get("unit")
-
-    @property
-    def state_class(self):
-        """Return the state class of the sensor."""
-        # Text sensors should not have a state class
-        if hasattr(self, "_attr_device_class") and self._attr_device_class is None:
-            return None
-        # For numeric sensors, we could add measurement state class
-        # But for now, we'll keep it simple
-        return None
+        # ✅ PRIORITÉ 3 : Réunification de la détection dynamique (qui était coupée !)
+        value_type = periph_data.get("value_type")
+        unit = periph_data.get("unit")
 
         if value_type == "float":
             if unit == "°C":
@@ -380,38 +373,73 @@ class EedomusSensor(EedomusEntity, SensorEntity):
                 return "illuminance"
             elif unit in ["W", "Wh"]:
                 return "power" if unit == "W" else "energy"
+            elif unit == "mm/h":
+                return "precipitation_intensity"
+            elif unit == "mm":
+                return "precipitation"
+        return None
+
+    @property
+    def state_class(self):
+        """Return the state class of the sensor."""
+        periph_data = self.coordinator.data.get(self._periph_id, {})
+        
+        # ✅ PRIORITÉ 1 : Support du custom YAML (ex: measurement)
+        if "state_class" in periph_data:
+            return periph_data["state_class"]
+            
+        # ✅ PRIORITÉ 2 : Attribution automatique par exclusion positive
+        if self.device_class in [
+            "temperature", 
+            "humidity", 
+            "power", 
+            "illuminance", 
+            "atmospheric_pressure", 
+            "precipitation_intensity", 
+            "precipitation"
+        ]:
+            return "measurement"
+        if self.device_class == "energy":
+            return "total_increasing"
         return None
 
     @property
     def native_unit_of_measurement(self):
         """Return the unit of measurement."""
-        # Use the unit set in __init__ or fall back to dynamic detection
-        if hasattr(self, "_attr_native_unit_of_measurement"):
+        periph_data = self.coordinator.data.get(self._periph_id, {})
+        
+        # ✅ PRIORITÉ 1 : Support du custom YAML (ex: hPa)
+        if "unit_of_measurement" in periph_data:
+            return periph_data["unit_of_measurement"]
+
+        if hasattr(self, "_attr_native_unit_of_measurement") and self._attr_native_unit_of_measurement is not None:
             return self._attr_native_unit_of_measurement
 
-        unit = self.coordinator.data[self._periph_id].get("unit")
+        unit = periph_data.get("unit")
         _LOGGER.debug(
             "Sensor %s (periph_id=%s) unit_of_measurement: %s",
-            self.coordinator.data[self._periph_id].get("name", "unknown"),
+            periph_data.get("name", "unknown"),
             self._periph_id,
             unit,
         )
 
-        # If unit is None, use default unit based on device_class
+        # ✅ PRIORITÉ 2 : AJOUT DE LA SÉCURITÉ ANTI-ESPACE VIDE (' ')
+        if isinstance(unit, str) and not unit.strip():
+            return None
+
         if unit is None:
             device_class = self.device_class
             if device_class in DEVICE_CLASS_UNITS:
                 return DEVICE_CLASS_UNITS[device_class]
             else:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "Missing unit of measurement for sensor %s (periph_id=%s, device_class=%s)",
-                    self.coordinator.data[self._periph_id].get("name", "unknown"),
+                    self.coordinator.data.get(self._periph_id, {}).get("name", "unknown"),
                     self._periph_id,
                     device_class,
                 )
-                return None
+            return None
 
-        # Normalize unit for 'illuminance' device_class
         if self.device_class == "illuminance" and unit == "Lux":
             return "lx"
 
@@ -428,12 +456,9 @@ class EedomusSensor(EedomusEntity, SensorEntity):
 
         if "history" in periph_data:
             attrs["history"] = periph_data["history"]
-
         if "value_list" in periph_data:
             attrs["value_list"] = periph_data["value_list"]
-
         return attrs
-
 
 class EedomusAggregatedSensor(EedomusSensor):
     """Representation of an eedomus aggregated sensor, combining parent and child devices."""
@@ -442,18 +467,8 @@ class EedomusAggregatedSensor(EedomusSensor):
         """Initialize the aggregated sensor with parent and child devices."""
         super().__init__(coordinator, periph_id)
         self._parent_id = periph_id
-        self._parent_device = self.coordinator.data[periph_id]
-        self._child_devices = {child["periph_id"]: child for child in child_devices}
-
-        _LOGGER.debug(
-            "Initializing aggregated sensor %s (periph_id=%s) with children: %s",
-            self._parent_device["name"],
-            self._parent_id,
-            ", ".join(
-                f"{child['name']} (periph_id={child['periph_id']})"
-                for child in child_devices
-            ),
-        )
+        self._parent_device = self.coordinator.data.get(periph_id, {})
+        self._child_devices = {child["periph_id"]: child for child in child_devices if child}
 
     @property
     def native_value(self):
@@ -495,20 +510,17 @@ class EedomusAggregatedSensor(EedomusSensor):
                     "value": child_data.get("last_value"),
                     "unit": child_data.get("unit"),
                     "type": child_data.get("ha_subtype"),
-            }
+                }
 
         result_attrs["child_devices"] = child_attrs
         return result_attrs
 
 
-# In sensor.py
 class EedomusHistoryProgressSensor(EedomusEntity, SensorEntity):
     """Capteur pour afficher la progression de l'import de l'historique."""
 
     def __init__(self, coordinator, device_data):
-        super().__init__(
-            coordinator, periph_id=device_data["periph_id"]  # Simple string
-        )
+        super().__init__(coordinator, periph_id=device_data["periph_id"])
         self._attr_unique_id = f"eedomus_history_progress_{device_data['periph_id']}"
         self._attr_name = f"{device_data['name']} (History Progress)"
         self._attr_icon = "mdi:progress-clock"
@@ -516,15 +528,15 @@ class EedomusHistoryProgressSensor(EedomusEntity, SensorEntity):
     @property
     def native_value(self):
         """Retourne le pourcentage de progression."""
-        progress = self.coordinator._history_progress.get(self._device_id, {})
+        progress = getattr(self.coordinator, '_history_progress', {}).get(self._periph_id, {})
         if progress.get("completed"):
             return 100
-        return 0  # To be improved with real estimation
+        return 0
 
     @property
     def extra_state_attributes(self):
         """Retourne des détails sur la progression."""
-        progress = self.coordinator._history_progress.get(self._device_id, {})
+        progress = getattr(self.coordinator, '_history_progress', {}).get(self._periph_id, {})
         return {
             "last_timestamp": progress.get("last_timestamp", 0),
             "completed": progress.get("completed", False),
@@ -549,7 +561,7 @@ class EedomusBatterySensor(EedomusEntity, SensorEntity):
         super().__init__(coordinator, periph_id)
 
         # Configure battery sensor attributes
-        device_name = self.coordinator.data[periph_id].get("name", "Unknown Device")
+        device_name = self.coordinator.data.get(periph_id, {}).get("name", "Unknown Device")
         self._attr_name = f"{device_name} Battery"
         self._attr_unique_id = f"{periph_id}_battery"
         self._attr_device_class = "battery"
@@ -565,8 +577,7 @@ class EedomusBatterySensor(EedomusEntity, SensorEntity):
     @property
     def native_value(self) -> int | None:
         """Return the battery level."""
-        battery_level = self.coordinator.data[self._periph_id].get("battery", "")
-
+        battery_level = self.coordinator.data.get(self._periph_id, {}).get("battery", "")
         if battery_level and str(battery_level).strip():
             try:
                 return int(battery_level)
@@ -594,7 +605,7 @@ class EedomusBatterySensor(EedomusEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return additional state attributes."""
-        periph_data = self.coordinator.data[self._periph_id]
+        periph_data = self.coordinator.data.get(self._periph_id, {})
         battery_level = self.native_value
 
         # Determine battery status
@@ -620,12 +631,7 @@ class EedomusBatterySensor(EedomusEntity, SensorEntity):
     async def async_update(self) -> None:
         """Update the battery sensor."""
         await super().async_update()
-        battery_level = self.coordinator.data[self._periph_id].get("battery", "")
+        battery_level = self.coordinator.data.get(self._periph_id, {}).get("battery", "")
         _LOGGER.debug(
             "🔋 Updated battery sensor %s: %s%%", self._attr_name, battery_level
         )
-
-
-
-
-

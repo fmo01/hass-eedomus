@@ -9,6 +9,7 @@ from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     ClimateEntityFeature,
     HVACMode,
+    HVACAction,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -73,7 +74,7 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
         self._attr_hvac_modes = entity_specifics.get('hvac_modes', [HVACMode.HEAT, HVACMode.OFF])
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
         
-        # Temperature unit (required by Home Assistant)
+        # Temperature unit
         self._attr_temperature_unit = entity_specifics.get('temperature_unit', "°C")
 
         # Temperature range and precision from YAML (with defaults)
@@ -85,16 +86,14 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
         self._attr_precision = entity_specifics.get('precision', 0.5)
 
         # Initialize default values
-        self._attr_target_temperature = 19.0  # Default target temperature
-        self._attr_current_temperature = None  # Will be set if available
+        self._attr_target_temperature = 19.0
+        self._attr_current_temperature = None
+        self._attr_hvac_action = HVACAction.OFF
         
-        # Load temperature sensor mapping if available
+        # Load temperature and heating switch mappings if available
         self._linked_temperature_sensor = None
+        self._linked_heating_switch = None
         
-        # Temperature sensor mapping will be loaded asynchronously in async_added_to_hass
-        # to avoid blocking the event loop
-        
-        # Fallback to device_mapping.yaml (for backward compatibility)
         if 'temperature_setpoint_mappings' in yaml_config:
             sensor_id = yaml_config['temperature_setpoint_mappings'].get(periph_id, '')
             if sensor_id:
@@ -103,12 +102,28 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                     "🔗 Climate entity %s (%s) linked to temperature sensor %s (from device mapping)",
                     self._attr_name, periph_id, sensor_id
                 )
+                
+        # Vérification et attribution du switch lié depuis le YAML
+        if 'heating_switch_mappings' in yaml_config:
+            switch_id = yaml_config['heating_switch_mappings'].get(periph_id, '')
+            if switch_id:
+                self._linked_heating_switch = switch_id
+                _LOGGER.info(
+                    "🔗 Climate entity %s (%s) linked to heating switch %s (from device mapping)",
+                    self._attr_name, periph_id, switch_id
+                )
 
         _LOGGER.debug(
             "Initializing climate entity for %s (%s)", self._attr_name, periph_id
         )
         self._update_climate_state()
         self._update_current_temperature()
+
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._update_climate_state()
+        self._update_current_temperature()
+        self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
         """Call when the entity is added to Home Assistant.
@@ -131,6 +146,16 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                         "🔗 Climate entity %s (%s) linked to temperature sensor %s (from custom config)",
                         self._attr_name, periph_id, sensor_id
                     )
+                    
+            if 'heating_switch_mappings' in custom_mappings:
+                periph_id = self._periph_id
+                switch_id = custom_mappings['heating_switch_mappings'].get(periph_id, '')
+                if switch_id and not self._linked_heating_switch:
+                    self._linked_heating_switch = switch_id
+                    _LOGGER.info(
+                        "🔗 Climate entity %s (%s) linked to heating switch %s (from custom config)",
+                        self._attr_name, periph_id, switch_id
+                    )
         except Exception as e:
             _LOGGER.debug("No custom mappings found or error loading: %s", e)
 
@@ -138,7 +163,6 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
     def extra_state_attributes(self):
         """Return device-specific state attributes for monitoring and diagnostics."""
         attrs = {}
-        
         try:
             periph_data = self._get_periph_data()
             if periph_data:
@@ -179,10 +203,11 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                     if self._attr_current_temperature is not None:
                         attrs["current_temperature"] = f"{self._attr_current_temperature}°C"
                 
+                if self._linked_heating_switch:
+                    attrs["linked_heating_switch"] = self._linked_heating_switch
         except Exception as e:
             _LOGGER.debug("Failed to generate extra state attributes: %s", e)
             attrs["error"] = "Failed to generate attributes"
-        
         return attrs
 
     def _get_device_health(self):
@@ -191,13 +216,10 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
             periph_data = self._get_periph_data()
             if not periph_data:
                 return "unavailable"
-            
             last_value = periph_data.get("last_value", "")
             last_updated = periph_data.get("last_updated")
-            
             if not last_value or last_value == "":
                 return "no_data"
-            
             if last_updated:
                 try:
                     last_updated_dt = datetime.fromisoformat(last_updated)
@@ -216,7 +238,6 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                 return "invalid_temperature"
             
             return "healthy"
-            
         except Exception as e:
             _LOGGER.debug("Failed to assess device health: %s", e)
             return "unknown"
@@ -224,17 +245,14 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
     def _get_connection_status(self):
         """Assess connection status to eedomus API."""
         try:
-            # Check if we have recent data
             periph_data = self._get_periph_data()
             if not periph_data:
                 return "disconnected"
-            
             last_updated = periph_data.get("last_updated")
             if last_updated:
                 try:
                     last_updated_dt = datetime.fromisoformat(last_updated)
                     time_since_update = (datetime.now() - last_updated_dt).total_seconds()
-                    
                     if time_since_update < 60:
                         return "real_time"
                     elif time_since_update < 300:
@@ -245,92 +263,135 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                         return "delayed"
                 except:
                     return "unknown_timestamp"
-            
             return "no_timestamp"
-            
         except Exception as e:
             _LOGGER.debug("Failed to assess connection status: %s", e)
             return "error"
 
     def _update_climate_state(self):
         """Update the climate state from eedomus data."""
-        periph_data = self.coordinator.data[self._periph_id]
+        # ✅ SÉCURISATION COORDINATOR (Évite le KeyError)
+        periph_data = self.coordinator.data.get(self._periph_id, {})
+        if not periph_data:
+            return
 
-        # Map eedomus values to Home Assistant HVAC modes
         current_value = periph_data.get("last_value", "")
-
-        # Improved HVAC mode mapping based on usage_id
+        # ✅ SÉCURISATION TYPE ANTI-CRASH (On force le passage en string propre)
+        current_value_str = str(current_value).strip() if current_value is not None else ""
         usage_id = periph_data.get("usage_id", "")
 
-        # For temperature setpoints (usage_id=15), the value is typically the temperature
-        if usage_id == "15":
-            # For consignes de température, last_value is usually the target temperature
-            if current_value.replace(".", "").isdigit():
-                self._attr_hvac_mode = HVACMode.HEAT
-            else:
-                self._attr_hvac_mode = HVACMode.OFF
-        # For fil pilote heating (usage_id=19,20,38)
-        elif usage_id in ["19", "20", "38"]:
-            if current_value in ["1", "on", "heat", "chauffage", "marche"]:
-                self._attr_hvac_mode = HVACMode.HEAT
-            else:
-                self._attr_hvac_mode = HVACMode.OFF
-        # Default mapping
-        else:
-            if current_value in ["1", "on", "heat"]:
-                self._attr_hvac_mode = HVACMode.HEAT
-            else:
-                self._attr_hvac_mode = HVACMode.OFF
+        val_str_lower = current_value_str.lower()
 
-        # Try to get target temperature if available
+        # =====================================================================
+        # 1. GESTION DES MODES ET ACTIONS AVEC PRIORITÉ AU SWITCH LIÉ
+        # =====================================================================
+        if self._linked_heating_switch:
+            switch_data = self.coordinator.data.get(self._linked_heating_switch, {})
+            switch_val = str(switch_data.get("last_value", "")).lower().strip()
+            
+            # Si le switch de commande est allumé (valeur 1 ou 100)
+            if switch_val in ["1", "100", "on", "marche", "true"]:
+                self._attr_hvac_mode = HVACMode.HEAT
+                self._attr_hvac_action = HVACAction.HEATING
+            else:
+                # Si le switch de commande est éteint, le thermostat passe à l'état Éteint
+                self._attr_hvac_mode = HVACMode.OFF
+                self._attr_hvac_action = HVACAction.OFF
+        else:
+            # Gestion classique sans switch lié (basée uniquement sur l'usage eedomus)
+            if usage_id == "15":
+                try:
+                    float(current_value_str)
+                    self._attr_hvac_mode = HVACMode.HEAT
+                except ValueError:
+                    self._attr_hvac_mode = HVACMode.OFF
+            elif usage_id in ["19", "20", "38"]:
+                if val_str_lower in ["1", "100", "on", "heat", "chauffage", "marche", "confort"]:
+                    self._attr_hvac_mode = HVACMode.HEAT
+                else:
+                    self._attr_hvac_mode = HVACMode.OFF
+            else:
+            # Pour l'usage 0 ou autre, si c'est un nombre (consigne active), on est en mode HEAT
+                if val_str_lower in ["1", "100", "on", "heat", "marche"]:
+                    self._attr_hvac_mode = HVACMode.HEAT
+                else:
+                    try:
+                        float(current_value_str)
+                        self._attr_hvac_mode = HVACMode.HEAT
+                    except ValueError:
+                        self._attr_hvac_mode = HVACMode.OFF
+
+            # Définition de l'action sans switch lié
+            if self._attr_hvac_mode == HVACMode.HEAT:
+                self._attr_hvac_action = HVACAction.IDLE
+            else:
+                self._attr_hvac_action = HVACAction.OFF
+
+        # =====================================================================
+        # 2. RESTAURATION ET SÉCURISATION DE VOTRE LOGIQUE DE CONSIGNE (Ligne 320+)
+        # =====================================================================
         target_temp = None
-        if "target_temperature" in periph_data:
-            target_temp = float(periph_data["target_temperature"])
-        elif (
-            "last_value" in periph_data
-            and periph_data["last_value"].replace(".", "").isdigit()
-        ):
-            # If last_value looks like a temperature
-            target_temp = float(periph_data["last_value"])
+        if "target_temperature" in periph_data and periph_data["target_temperature"] is not None:
+            try:
+                target_temp = float(periph_data["target_temperature"])
+            except (ValueError, TypeError):
+                pass
+
+        # Si pas trouvé dans target_temperature ou échec, utilisation de votre validation textuelle stricte sur last_value
+        if target_temp is None and "last_value" in periph_data:
+            lv_str = str(periph_data["last_value"]).strip()
+            if lv_str.replace(".", "", 1).lstrip("-").isdigit():
+                try:
+                    target_temp = float(periph_data["last_value"])
+                except (ValueError, TypeError):
+                    pass
 
         if target_temp is not None:
             self._attr_target_temperature = target_temp
 
-        # Get current temperature from associated sensor if available
+        # =====================================================================
+        # 3. RÉCUPÉRATION DE LA TEMPÉRATURE ACTUELLE (SONDE ENFANT OU CONFIG)
+        # =====================================================================
         current_temp = None
 
-        # Try to find temperature sensor in child devices
+        # Recherche d'une sonde de température parmi les périphériques enfants
         all_peripherals = self.coordinator.get_all_peripherals()
         for child_periph_id, child_periph in all_peripherals.items():
             if child_periph.get("parent_periph_id") == self._periph_id:
-                if child_periph.get("usage_id") == "7":  # Temperature sensor
-                    child_value = child_periph.get("last_value", "")
-                    if (
-                        child_value
-                        and child_value.replace(".", "").replace("-", "").isdigit()
-                    ):
-                        current_temp = float(child_value)
-                        break
+                if child_periph.get("usage_id") == "7":  # Capteur de température
+                    child_value = child_periph.get("last_value")
+                    if child_value is not None and child_value != "":
+                        try:
+                            current_temp = float(str(child_value).strip())
+                            break
+                        except ValueError:
+                            pass
 
         if current_temp is None and "current_temperature" in periph_data:
-            current_temp = float(periph_data["current_temperature"])
+            try:
+                current_temp = float(periph_data["current_temperature"])
+            except (ValueError, TypeError):
+                pass
 
         if current_temp is not None:
             self._attr_current_temperature = current_temp
 
-        # Set temperature range based on eedomus values if available
-        self._attr_min_temp = 7.0  # Default minimum
-        self._attr_max_temp = 30.0  # Default maximum
+        # =====================================================================
+        # 4. RELECTURE DYNAMIQUE DES BORNES MINI / MAXI DU THERMOSTAT
+        # =====================================================================
+        self._attr_min_temp = 7.0
+        self._attr_max_temp = 30.0
 
-        # Try to determine temperature range from acceptable values
         values_data = periph_data.get("values", [])
         if values_data:
             numeric_values = []
             for value_item in values_data:
                 if isinstance(value_item, dict):
                     value = value_item.get("value", "")
-                    if value.replace(".", "").isdigit():
-                        numeric_values.append(float(value))
+                    try:
+                        numeric_values.append(float(str(value).strip()))
+                    except ValueError:
+                        pass
 
             if numeric_values:
                 self._attr_min_temp = min(numeric_values)
@@ -339,22 +400,21 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
     def _update_current_temperature(self):
         """Update current temperature from linked sensor or child devices."""
         if not self._linked_temperature_sensor:
-            # No linked sensor, try to find temperature from child devices
             all_peripherals = self.coordinator.get_all_peripherals()
             for child_periph_id, child_periph in all_peripherals.items():
                 if child_periph.get("parent_periph_id") == self._periph_id:
-                    if child_periph.get("usage_id") == "7":  # Temperature sensor
-                        child_value = child_periph.get("last_value", "")
-                        if (
-                            child_value
-                            and child_value.replace(".", "").replace("-", "").isdigit()
-                        ):
-                            self._attr_current_temperature = float(child_value)
-                            _LOGGER.debug(
-                                "🌡️ Updated current temperature from child sensor %s: %.1f°C",
-                                child_periph_id, self._attr_current_temperature
-                            )
-                            return
+                    if child_periph.get("usage_id") == "7":
+                        child_value = child_periph.get("last_value")
+                        if child_value is not None and child_value != "":
+                            try:
+                                self._attr_current_temperature = float(str(child_value).strip())
+                                _LOGGER.debug(
+                                    "🌡️ Updated current temperature from child sensor %s: %.1f°C",
+                                    child_periph_id, self._attr_current_temperature
+                                )
+                                return
+                            except ValueError:
+                                pass
         else:
             # Get temperature from linked sensor
             sensor_data = self.coordinator.data.get(self._linked_temperature_sensor)
@@ -379,7 +439,6 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
         periph_data = self._get_periph_data()
         if periph_data is None:
             return False
-            
         return periph_data.get("last_value", "") != ""
 
     async def async_set_temperature(self, **kwargs):
@@ -388,15 +447,13 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
         if temperature is None:
             return
 
-        _LOGGER.info(
-            "Setting temperature for %s to %.1f°C", self._attr_name, temperature
-        )
+        _LOGGER.info("Setting temperature for %s to %.1f°C", self._attr_name, temperature)
 
         try:
-            periph_data = self.coordinator.data[self._periph_id]
+            periph_data = self.coordinator.data.get(self._periph_id, {})
+            if not periph_data:
+                return
             eedomus_value = None
-
-            # For usage_id=15 (temperature setpoints), we can send the temperature directly
             usage_id = periph_data.get("usage_id", "")
 
             if usage_id == "15":
@@ -420,20 +477,17 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                         value = value_item.get("value", "")
                         description = value_item.get("description", "").lower()
                         acceptable_values[description] = value
-                        acceptable_values[value] = (
-                            value  # Also allow direct value matching
-                        )
-
+                        acceptable_values[value] = value
                 _LOGGER.debug(
                     "Acceptable temperature values for %s: %s",
                     self._attr_name,
                     acceptable_values,
                 )
-
                 # Find the closest acceptable temperature value
                 # For eedomus, we should always use integers for temperature setpoints
                 # First try exact match with integer
-                temp_int = int(round(temperature))  # Always use integer
+
+                temp_int = int(round(temperature))
                 temp_str = str(temp_int)
                 if temp_str in acceptable_values:
                     eedomus_value = acceptable_values[temp_str]
@@ -447,100 +501,43 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                             pass
 
                     if numeric_values:
-                        closest_value = min(
-                            numeric_values, key=lambda x: abs(x - temperature)
-                        )
-                        eedomus_value = str(int(closest_value))  # Always use integer
+                        closest_value = min(numeric_values, key=lambda x: abs(x - temperature))
+                        eedomus_value = str(int(closest_value))
 
                 if eedomus_value is None:
-                    _LOGGER.error(
-                        "No acceptable temperature value found for %s. Available: %s",
+                    _LOGGER.error("No acceptable temperature value found for %s", self._attr_name)
+                    _LOGGER.debug(
+                        "Setting %s temperature to eedomus value: %s (type: %s, requested: %.1f°C, acceptable: %s)",
                         self._attr_name,
-                        list(acceptable_values.keys()),
+                        eedomus_value,
+                        type(eedomus_value),
+                        temperature,
+                        list(acceptable_values.keys())[:5] if acceptable_values else 'None',
                     )
                     return
 
-                _LOGGER.debug(
-                    "Setting %s temperature to eedomus value: %s (type: %s, requested: %.1f°C, acceptable: %s)",
-                    self._attr_name,
-                    eedomus_value,
-                    type(eedomus_value),
-                    temperature,
-                    list(acceptable_values.keys())[:5] if acceptable_values else 'None',
-                )
-
             if eedomus_value is None:
-                _LOGGER.error(
-                    "Could not determine eedomus value for temperature %.1f°C",
-                    temperature,
-                )
                 return
 
             try:
-                # Ensure we send an integer value (no decimals)
                 final_value = str(int(float(eedomus_value))) if eedomus_value else eedomus_value
-                result = await self.coordinator.async_set_periph_value(
-                    self._periph_id, final_value
-                )
+                result = await self.coordinator.async_set_periph_value(self._periph_id, final_value)
 
                 if result.get("success", 0) == 1:
-                    _LOGGER.info(
-                        "✅ Successfully set temperature for %s to %.1f°C",
-                        self._attr_name,
-                        temperature,
-                    )
-                    # Update local state to reflect the change immediately
+                    _LOGGER.info("✅ Successfully set temperature for %s to %.1f°C", self._attr_name, temperature)
                     self._attr_target_temperature = temperature
                     self.async_write_ha_state()
-                    
-                    # Force refresh to ensure coordinator has latest data
                     await self.coordinator.async_request_refresh()
-                    
                 else:
-                    error_msg = result.get("error", "Unknown error")
-                    error_code = result.get("error_code", "unknown")
-                    _LOGGER.error(
-                        "❌ Failed to set temperature for %s: %s (code: %s)",
-                        self._attr_name,
-                        error_msg,
-                        error_code,
-                    )
-                    raise ValueError(f"Failed to set temperature: {error_msg}")
-                    
+                    raise ValueError(f"Failed to set temperature: {result.get('error')}")
             except Exception as err:
-                _LOGGER.error(
-                    "❌ Exception setting temperature for %s to %.1f°C: %s",
-                    self._attr_name,
-                    temperature,
-                    str(err),
-                )
-                # Provide specific guidance for common errors
-                if "connection" in str(err).lower():
-                    _LOGGER.error(
-                        "💡 Check eedomus API connection and network connectivity"
-                    )
-                elif "timeout" in str(err).lower():
-                    _LOGGER.error(
-                        "💡 API request timed out - check eedomus box responsiveness"
-                    )
-                elif "value refused" in str(err).lower() or "error_code" in str(err).lower():
-                    _LOGGER.error(
-                        "💡 Temperature value may be outside device's acceptable range"
-                    )
-                    _LOGGER.error(
-                        "💡 Check device configuration in eedomus for valid temperature values"
-                    )
-                # Update the target temperature immediately even on error
+                _LOGGER.error("❌ Exception setting temperature for %s: %s", self._attr_name, str(err))
                 self._attr_target_temperature = temperature
                 await self.coordinator.async_request_refresh()
                 self.async_write_ha_state()
                 raise
         except Exception as e:
-            _LOGGER.error(
-                "Exception while setting temperature for %s: %s",
-                self._attr_name,
-                str(e),
-            )
+            _LOGGER.error("Exception while setting temperature for %s: %s", self._attr_name, str(e))
             raise
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
@@ -548,55 +545,35 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
         _LOGGER.info("Setting HVAC mode for %s to %s", self._attr_name, hvac_mode)
 
         try:
-            # Get the list of acceptable values for this peripheral
-            periph_data = self.coordinator.data[self._periph_id]
+            periph_data = self.coordinator.data.get(self._periph_id, {})
+            if not periph_data:
+                return
             acceptable_values = {}
 
-            # Build a mapping of description to value from the peripheral's value list
             if "values" in periph_data:
                 for value_item in periph_data["values"]:
                     value = value_item.get("value", "")
                     description = value_item.get("description", "").lower()
                     acceptable_values[description] = value
-                    acceptable_values[value] = value  # Also allow direct value matching
+                    acceptable_values[value] = value
 
-            _LOGGER.debug(
-                "Acceptable values for %s: %s", self._attr_name, acceptable_values
-            )
-
-            # Map Home Assistant HVAC mode to eedomus command using acceptable values
             eedomus_value = None
             if hvac_mode == HVACMode.HEAT:
-                # Try different variations that might be in the acceptable values
-                for heat_variant in ["on", "heat", "chauffage", "marche", "1", "reprendre", "resume"]:
+                for heat_variant in ["on", "heat", "chauffage", "marche", "1", "reprendre", "resume", "100", "confort"]:
                     if heat_variant in acceptable_values:
                         eedomus_value = acceptable_values[heat_variant]
                         break
             elif hvac_mode == HVACMode.OFF:
-                # Try different variations for off (including French variants)
                 for off_variant in ["off", "arrêt", "0", "stop", "désactiver", "pause"]:
                     if off_variant in acceptable_values:
                         eedomus_value = acceptable_values[off_variant]
                         break
 
             if eedomus_value is None:
-                _LOGGER.error(
-                    "No acceptable value found for HVAC mode %s for %s. Available: %s",
-                    hvac_mode,
-                    self._attr_name,
-                    list(acceptable_values.keys()),
-                )
+                _LOGGER.error("No acceptable value found for HVAC mode %s for %s", hvac_mode, self._attr_name)
                 return
 
-            _LOGGER.debug(
-                "Setting %s HVAC mode to eedomus value: %s",
-                self._attr_name,
-                eedomus_value,
-            )
-
-            result = await self.coordinator.async_set_periph_value(
-                self._periph_id, str(eedomus_value)
-            )
+            result = await self.coordinator.async_set_periph_value(self._periph_id, str(eedomus_value))
 
             if result.get("success", 0) == 1:
                 _LOGGER.debug(
@@ -609,16 +586,9 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                 await self.coordinator.async_request_refresh()
                 self.async_write_ha_state()
             else:
-                _LOGGER.error(
-                    "Failed to set HVAC mode for %s: %s (tried value: %s)",
-                    self._attr_name,
-                    result.get("error", "Unknown error"),
-                    eedomus_value,
-                )
+                _LOGGER.error("Failed to set HVAC mode for %s: %s", self._attr_name, result.get("error"))
         except Exception as e:
-            _LOGGER.error(
-                "Exception while setting HVAC mode for %s: %s", self._attr_name, str(e)
-            )
+            _LOGGER.error("Exception while setting HVAC mode for %s: %s", self._attr_name, str(e))
             raise
 
     @property
@@ -631,18 +601,13 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
         await super().async_update()
         self._update_climate_state()
 
-        # Format the debug message safely
-        target_temp = (
-            self._attr_target_temperature if self._attr_target_temperature else "N/A"
-        )
-        if isinstance(target_temp, (int, float)):
-            target_str = f"{target_temp:.1f}°C"
-        else:
-            target_str = str(target_temp)
+        target_temp = self._attr_target_temperature if self._attr_target_temperature else "N/A"
+        target_str = f"{target_temp:.1f}°C" if isinstance(target_temp, (int, float)) else str(target_temp)
 
         _LOGGER.debug(
-            "Updated climate state for %s: mode=%s, target=%s",
+            "Updated climate state for %s: mode=%s, action=%s, target=%s",
             self._attr_name,
             self._attr_hvac_mode,
+            self._attr_hvac_action,
             target_str,
         )

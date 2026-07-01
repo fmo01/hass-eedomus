@@ -165,6 +165,12 @@ class EedomusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             api_proxy_enabled,
         )
 
+        # 🛠️ SÉCURITÉ ANTI-DOUBLON AVANT VALIDATION RÉSEAU
+        # On enregistre l'ID unique et on coupe immédiatement si la box existe déjà
+        unique_id = f"eedomus_{user_input[CONF_API_HOST]}"
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured()
+
         # Validate the input
         try:
             info = await self.validate_input(user_input)

@@ -121,10 +121,9 @@ async def async_setup_entry(
                     entities.append(EedomusLight(coordinator, periph_id))
             else:
                 _LOGGER.debug(
-                    "Create a light entity %s (%s) mapping=%s",
+                    "Create a light entity %s (%s)",
                     periph["name"],
-                    periph_id,
-                    eedomus_mapping,
+                    periph_id
                 )
                 entities.append(EedomusLight(coordinator, periph_id))
 

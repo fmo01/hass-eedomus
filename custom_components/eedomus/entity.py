@@ -15,6 +15,8 @@ from .device_mapping import load_and_merge_yaml_mappings, load_yaml_mappings
 from .mapping_registry import register_device_mapping, get_mapping_registry, print_mapping_table, print_mapping_summary
 from .mapping_rules import evaluate_conditions
 
+_LOGGER = logging.getLogger(__name__)
+
 # Get version from manifest.json
 try:
     manifest_path = os.path.join(os.path.dirname(__file__), "manifest.json")
@@ -24,8 +26,6 @@ try:
 except Exception as e:
     VERSION = "unknown"
     _LOGGER.warning("Failed to read version from manifest.json: %s", e)
-
-_LOGGER = logging.getLogger(__name__)
 
 # Global variable to store loaded mappings
 # NOTE: DEVICE_MAPPINGS is initialized at module load time using synchronous YAML loading.
@@ -171,6 +171,9 @@ class EedomusEntity(CoordinatorEntity):
         device_name = periph_data.get("name", f"Unknown Device ({self._periph_id})")
         parent_id = periph_data.get("parent_periph_id")
         
+        # On génère l'identifiant unique de la box eedomus parente
+        box_identifier = f"eedomus_box_{self.coordinator.config_entry.entry_id}"
+        
         # If this device has a parent, use the parent's info
         if parent_id and hasattr(self.coordinator, 'data') and parent_id in self.coordinator.data:
             parent_data = self.coordinator.data[parent_id]
@@ -181,7 +184,7 @@ class EedomusEntity(CoordinatorEntity):
                 name=parent_name,
                 manufacturer="Eedomus",
                 model=parent_data.get("usage_name", "Unknown"),
-                via_device=(DOMAIN, "eedomus_box_main"),
+                via_device=(DOMAIN, box_identifier), # ✅ Lié dynamiquement à la bonne Box
             )
         
         # Otherwise, use this device's info
@@ -190,7 +193,7 @@ class EedomusEntity(CoordinatorEntity):
             name=device_name,
             manufacturer="Eedomus",
             model=periph_data.get("usage_name", "Unknown"),
-            via_device=(DOMAIN, "eedomus_box_main"),
+            via_device=(DOMAIN, box_identifier), # ✅ Lié dynamiquement à la bonne Box
         )
 
     async def async_update(self):
@@ -210,7 +213,6 @@ class EedomusEntity(CoordinatorEntity):
         await super().async_added_to_hass()
         # Schedule a regular update to ensure consistency
         self.async_schedule_update_ha_state()
-
 
     async def async_set_value(self, value: str) -> dict | None:
         """Set the value of the peripheral using the eedomus service.
@@ -247,6 +249,7 @@ class EedomusEntity(CoordinatorEntity):
             )
             return None
 
+
 def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: str = "sensor", coordinator=None, parent_child_relations=None):
     """Map an eedomus device to a Home Assistant entity.
     
@@ -279,10 +282,6 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
     
     _LOGGER.debug("Mapping device: %s (%s, usage_id=%s)", periph_name, periph_id, usage_id)
     
-    # Debug spécifique pour le device 1269454 (RGBW connu)
-    if periph_id == "1269454":
-        _LOGGER.debug("🔍 SPECIAL DEBUG: Starting advanced rules evaluation for RGBW device 1269454")
-    
     # Fix: Ensure all_devices is never None or empty - create empty dict if needed
     if all_devices is None or not all_devices:
         _LOGGER.warning("⚠️  all_devices is None or empty, creating empty dict to allow advanced rules evaluation")
@@ -290,13 +289,6 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
     
     # Priorité 1: Règles avancées (nécessite all_devices)
     # Use the pre-converted dict format from device_mapping.py
-    if periph_id == "1269454":
-        _LOGGER.debug("SPECIAL DEBUG (v%s): Device 1269454 - advanced_rules type: %s", 
-                     VERSION, type(DEVICE_MAPPINGS.get('advanced_rules')))
-        _LOGGER.debug("SPECIAL DEBUG (v%s): Device 1269454 - advanced_rules_dict type: %s", 
-                     VERSION, type(DEVICE_MAPPINGS.get('advanced_rules_dict')))
-        _LOGGER.debug("SPECIAL DEBUG (v%s): Device 1269454 - advanced_rules_dict content: %s", 
-                     VERSION, DEVICE_MAPPINGS.get('advanced_rules_dict'))
     
     # Use the pre-converted dict format if available, otherwise fall back to old conversion
     if 'advanced_rules_dict' in DEVICE_MAPPINGS and isinstance(DEVICE_MAPPINGS['advanced_rules_dict'], dict):
@@ -323,25 +315,10 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
                      len(advanced_rules_dict), periph_name, periph_id)
         _LOGGER.debug("✅ Rule names: %s", list(advanced_rules_dict.keys()))
     
-    if periph_id == "1269454":
-        _LOGGER.debug("SPECIAL DEBUG: Device 1269454 - checking rgbw_lamp_by_children rule")
-        
-        if 'rgbw_lamp_by_children' in advanced_rules_dict:
-            _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_by_children rule found")
-        else:
-            _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_by_children rule NOT found")
-    
-    if periph_id == "1269454":
-        _LOGGER.debug("SPECIAL DEBUG: Device 1269454 - analyzing children")
-    
     for rule_name, rule_config in advanced_rules_dict.items():
         # Debug: Log which rule is being evaluated
         _LOGGER.debug("🔍 Evaluating rule '%s' for device %s (%s)", 
                      rule_name, periph_name, periph_id)
-        
-        # Special debug for RGBW rules
-        if periph_id == "1269454" and rule_name in ["rgbw_lamp_by_children", "rgbw_lamp_flexible"]:
-            _LOGGER.debug("SPECIAL DEBUG: Evaluating RGBW rule '%s' for device 1269454", rule_name)
         
         # Check if we have a condition function or conditions list
         if "condition" in rule_config:
@@ -359,54 +336,7 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
         _LOGGER.debug("Advanced rule '%s' for %s (%s): condition_result=%s",
                      rule_name, periph_name, periph_id, condition_result)
         
-        # Special debug for device 1269454
-        if periph_id == "1269454":
-            if rule_name == "rgbw_lamp_by_children":
-                _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_by_children - usage_id check: %s == %s", 
-                             device_data.get("usage_id") == "1", device_data.get("usage_id"))
-                _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_by_children - PRODUCT_TYPE_ID check: %s == %s", 
-                             device_data.get("PRODUCT_TYPE_ID") == "2304", device_data.get("PRODUCT_TYPE_ID"))
-                child_count = sum(1 for child_id, child in all_devices.items()
-                                 if child.get("parent_periph_id") == periph_id)
-                _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_by_children - child_count check: %s >= 4", 
-                             child_count)
-            elif rule_name == "rgbw_lamp_flexible":
-                _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_flexible - usage_id check: %s == %s", 
-                             device_data.get("usage_id") == "1", device_data.get("usage_id"))
-                total_children = len([child for child_id, child in all_devices.items()
-                                    if child.get("parent_periph_id") == periph_id])
-                _LOGGER.debug("SPECIAL DEBUG: rgbw_lamp_flexible - total_children check: %s >= 4", 
-                             total_children)
-                
-                # Check children names
-                children = [child for child_id, child in all_devices.items()
-                           if child.get("parent_periph_id") == periph_id]
-
         if condition_result:
-            # Log spécifique pour le débogage RGBW
-            if rule_name == "rgbw_lamp_by_children":
-                rgbw_children = [
-                    child for child_id, child in all_devices.items()
-                    if child.get("parent_periph_id") == periph_id and child.get("usage_id") == "1"
-                ]
-                _LOGGER.debug("RGBW detection for %s (%s): found %d children with usage_id=1: %s",
-                            periph_name, periph_id, len(rgbw_children),
-                            [c["name"] for c in rgbw_children])
-            
-            # Special debug for device 1269454
-            if periph_id == "1269454":
-                _LOGGER.debug("SPECIAL DEBUG: Device 1269454 - rule mapping: %s/%s", 
-                             rule_config["mapping"]["ha_entity"], rule_config["mapping"]["ha_subtype"])
-                _LOGGER.debug("✅ rgbw_lamp_by_children rule APPLIED for device 1269454!")
-                _LOGGER.debug("✅ Mapping: %s:%s", 
-                            rule_config["mapping"]["ha_entity"], rule_config["mapping"]["ha_subtype"])
-            
-            # Special debug for RGBW children (1269455-1269458)
-            if periph_id in ["1269455", "1269456", "1269457", "1269458"]:
-                _LOGGER.debug("✅ rgbw_child_brightness rule APPLIED for device %s!", periph_id)
-                _LOGGER.debug("✅ Mapping: %s:%s", 
-                            rule_config["mapping"]["ha_entity"], rule_config["mapping"]["ha_subtype"])
-            
             return _create_mapping(rule_config["mapping"], periph_name, periph_id, rule_name, "🎯 Advanced rule", device_data)
     
     # Priorité 2: Cas spécifiques critiques (usage_id)
@@ -423,15 +353,13 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
         )
     
     # Priorité 2.5: Mapping spécifique par periph_id (override usage_id mapping)
-    if periph_id and DEVICE_MAPPINGS and 'specific_device_mappings' in DEVICE_MAPPINGS and periph_id in DEVICE_MAPPINGS['specific_device_mappings']:
-        mapping = DEVICE_MAPPINGS['specific_device_mappings'][periph_id].copy()
+    if periph_id and DEVICE_MAPPINGS and 'specific_device_dynamic_overrides' in DEVICE_MAPPINGS and periph_id in DEVICE_MAPPINGS['specific_device_dynamic_overrides']:
+        mapping = DEVICE_MAPPINGS['specific_device_dynamic_overrides'][periph_id].copy()
         _LOGGER.debug("🎯 Specific device mapping applied for %s (%s): %s:%s",
                      periph_name, periph_id, mapping["ha_entity"], mapping["ha_subtype"])
         return _create_mapping(
             mapping, periph_name, periph_id, usage_id, f"🎯 Specific device mapping", device_data
         )
-    
-
     
     # Priorité 3: Mapping basé sur usage_id
     if usage_id and DEVICE_MAPPINGS and usage_id in DEVICE_MAPPINGS['usage_id_mappings']:
@@ -485,40 +413,12 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
             mapping.pop("subtype_mapping", None)
             mapping.pop("default", None)
         
-        # Special debug for device 1269454
-        if periph_id == "1269454":
-            _LOGGER.debug("SPECIAL DEBUG: Device 1269454 - final mapping: usage_id=%s, ha_entity=%s, ha_subtype=%s", 
-                         usage_id, mapping["ha_entity"], mapping["ha_subtype"])
-        
-        # Special debug for RGBW children (1269455-1269458)
-        if periph_id in ["1269455", "1269456", "1269457", "1269458"]:
-            _LOGGER.debug("🔍 SPECIAL DEBUG: RGBW child device %s - usage_id=%s, ha_entity=%s, ha_subtype=%s", 
-                        periph_id, usage_id, mapping["ha_entity"], mapping["ha_subtype"])
-            _LOGGER.debug("🔍 Device data: %s", device_data)
-            
-            # Check if parent is RGBW device
-            parent_id = device_data.get("parent_periph_id")
-            if parent_id and all_devices and parent_id in all_devices:
-                parent = all_devices[parent_id]
-                _LOGGER.debug("🔍 Parent device %s: name=%s, usage_id=%s", 
-                            parent_id, parent.get("name"), parent.get("usage_id"))
-                
-                # Check if parent is mapped as RGBW
-                parent_mapping = map_device_to_ha_entity(parent, all_devices, coordinator=coordinator)
-                _LOGGER.debug("🔍 Parent mapping: %s:%s", 
-                            parent_mapping["ha_entity"], parent_mapping["ha_subtype"])
-        
         # Appliquer les règles avancées si définies
         if "advanced_rules" in mapping:
             for rule_name in mapping["advanced_rules"]:
                 if DEVICE_MAPPINGS and rule_name in DEVICE_MAPPINGS['advanced_rules']:
                     rule_config = DEVICE_MAPPINGS['advanced_rules'][rule_name]
                     advanced_rule_result = rule_config["condition"](device_data, all_devices or {})
-                    
-                    # Special debug for device 1269454
-                    if periph_id == "1269454":
-                        _LOGGER.debug("🔍 Advanced rule '%s' for usage_id mapping: %s", 
-                                    rule_name, advanced_rule_result)
                     
                     if advanced_rule_result:
                         mapping.update({
@@ -532,12 +432,6 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
         
         _LOGGER.debug("Usage ID mapping: %s (%s) → %s:%s", 
                      periph_name, periph_id, mapping["ha_entity"], mapping["ha_subtype"])
-        
-        # Special debug for device 1269454
-        if periph_id == "1269454":
-            _LOGGER.debug("🔍 FINAL mapping decision for device 1269454: %s:%s",
-                        mapping["ha_entity"], mapping["ha_subtype"])
-            _LOGGER.debug("🔍 Justification: %s", mapping["justification"])
         
         return mapping
     
@@ -597,80 +491,10 @@ def map_device_to_ha_entity(device_data, all_devices=None, default_ha_entity: st
             "justification": "No matching rule found"
         }
     
-    # Special debug for device 1269454 if it reaches default mapping
-    if periph_id == "1269454":
-        _LOGGER.error("❌ CRITICAL: Device 1269454 reached default mapping!")
-        _LOGGER.error("❌ This means RGBW detection failed - device will be wrongly mapped")
-        _LOGGER.error("❌ Final mapping: %s:%s", mapping["ha_entity"], mapping["ha_subtype"])
-        _LOGGER.error("❌ Device data: %s", device_data)
-    
     _LOGGER.warning("❓ Unknown device: %s (%s) → %s:%s. Data: %s",
                     periph_name, periph_id, mapping["ha_entity"], mapping["ha_subtype"], device_data)
     return mapping
 
-
-    """Crée un mapping standardisé avec logging approprié."""
-    # mapping_config peut être soit la section 'mapping' directement, soit la règle complète
-    # avec une section 'mapping' imbriquée
-    if "ha_entity" in mapping_config:
-        # Cas 1: mapping_config est la section 'mapping' directement
-        mapping = {
-            "ha_entity": mapping_config["ha_entity"],
-            "ha_subtype": mapping_config["ha_subtype"],
-            "justification": mapping_config["justification"]
-        }
-    elif "mapping" in mapping_config:
-        # Cas 2: mapping_config est la règle complète avec une section 'mapping' imbriquée
-        mapping = {
-            "ha_entity": mapping_config["mapping"]["ha_entity"],
-            "ha_subtype": mapping_config["mapping"]["ha_subtype"],
-            "justification": mapping_config["mapping"]["justification"]
-        }
-    else:
-        raise ValueError(f"Invalid mapping_config structure: {mapping_config}")
-    
-    log_method = _LOGGER.info if emoji != "❓" else _LOGGER.warning
-    log_method("%s %s mapping: %s (%s) → %s:%s", 
-               emoji, context, periph_name, periph_id, mapping["ha_entity"], mapping["ha_subtype"])
-    
-    # Debug logging pour le suivi du processus de mapping
-    _LOGGER.debug("Mapping decision details for %s (%s): method=%s, result=%s:%s, justification=%s",
-                  periph_name, periph_id, context, mapping["ha_entity"], mapping["ha_subtype"],
-                  mapping["justification"])
-    
-    # Stocker le mapping dans le registre global
-    register_device_mapping(mapping, periph_name, periph_id, device_data)
-    async def async_set_value(self, value: str) -> dict | None:
-        """Set the value of the peripheral using the eedomus service.
-        
-        Args:
-            value: The value to set (string representation)
-            
-        Returns:
-            The response from the service call, or None if service not available
-        """
-        try:
-            # Call the eedomus.set_value service
-            # Note: return_response=False because the service doesn't return responses
-            return await self.hass.services.async_call(
-                DOMAIN,
-                "set_value",
-                {
-                    "device_id": self._periph_id,
-                    "value": value,
-                },
-                blocking=True,
-                return_response=False,
-            )
-        except Exception as e:
-            _LOGGER.error(
-                "Failed to set value for %s (periph_id=%s) to %s: %s",
-                self._attr_name,
-                self._periph_id,
-                value,
-                e,
-            )
-            return None
 
 def _create_mapping(mapping_config, periph_name, periph_id, context, emoji="🎯", device_data=None):
     """Create a standardized mapping with appropriate logging.

@@ -126,7 +126,7 @@ class EedomusCover(EedomusEntity, CoverEntity):
             return True  # Assume closed if data not available
             
         position = periph_data.get("last_value")
-        return position == "0" or position == 0
+        return position == "0" or float(position) == 0
 
     @property
     def current_cover_position(self):
@@ -138,7 +138,7 @@ class EedomusCover(EedomusEntity, CoverEntity):
             
         position = periph_data.get("last_value")
         try:
-            return int(position)
+            return int(float(position))
         except (ValueError, TypeError):
             return 0
 
@@ -212,7 +212,7 @@ class EedomusAggregatedCover(EedomusCover):
             
         position = periph_data.get("last_value")
         try:
-            return int(position)
+            return int(float(position))
         except (ValueError, TypeError):
             return 0
 

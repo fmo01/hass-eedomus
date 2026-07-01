@@ -210,7 +210,7 @@ async def async_setup_history_sensors(hass: HomeAssistant, coordinator, device_r
     # Get or create the main eedomus box device
     box_device = device_registry.async_get_or_create(
         config_entry_id=coordinator.config_entry.entry_id,
-        identifiers={(DOMAIN, "eedomus_box_main")},
+        identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
         name="Box eedomus",
         manufacturer="Eedomus",
         model="Eedomus Box",
@@ -218,12 +218,11 @@ async def async_setup_history_sensors(hass: HomeAssistant, coordinator, device_r
     )
     
     device_info = DeviceInfo(
-        identifiers={(DOMAIN, "eedomus_box_main")},
+        identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
         name="Box eedomus",
         manufacturer="Eedomus",
         model="Eedomus Box",
         sw_version="Unknown",
-        via_device=(DOMAIN, "eedomus_box_main"),
     )
     
     # Create global sensors

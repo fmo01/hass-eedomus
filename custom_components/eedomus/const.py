@@ -25,21 +25,20 @@ except ImportError:
     DEFAULT_API_SECRET = ""
 
 # Configuration
+CONF_API_HOST = "api_host"
 CONF_API_USER = "api_user"
 CONF_API_SECRET = "api_secret"
-CONF_API_HOST = "api_host"
 CONF_ENABLE_HISTORY = "history"
+CONF_ENABLE_API_EEDOMUS = "enable_api_eedomus"
+CONF_ENABLE_API_PROXY = "enable_api_proxy"
+CONF_ENABLE_SET_VALUE_RETRY = "enable_set_value_retry"
+CONF_ENABLE_WEBHOOK = "enable_webhook"
 CONF_HISTORY_RETRY_DELAY = "history_retry_delay_hours"
 CONF_HISTORY_PERIPHERALS_PER_SCAN = "history_peripherals_per_scan"
 CONF_SCAN_INTERVAL = "scan_interval"
-CONF_ENABLE_API_EEDOMUS = "api_eedomus"
-CONF_ENABLE_API_PROXY = "enable_api_proxy"
-CONF_API_PROXY_DISABLE_SECURITY = "api_proxy_disable_security"
-CONF_ENABLE_SET_VALUE_RETRY = "enable_set_value_retry"
-CONF_ENABLE_WEBHOOK = "enable_webhook"
 CONF_REMOVE_ENTITIES = "remove_entities"
+CONF_API_PROXY_DISABLE_SECURITY = "api_proxy_disable_security"
 CONF_HTTP_REQUEST_TIMEOUT = "http_request_timeout"
-
 
 CONF_PHP_FALLBACK_ENABLED = "php_fallback_enabled"
 CONF_PHP_FALLBACK_SCRIPT_NAME = "php_fallback_script_name"
@@ -149,7 +148,6 @@ CLASS_MAPPING: Dict[str, Dict[str, Any]] = {
 }
 
 # YAML Mapping Configuration Constants
-CONF_USE_YAML = "edit_custom_mapping"
 CONF_CUSTOM_DEVICES = "custom_devices"
 CONF_YAML_CONTENT = "yaml_content"
 
@@ -179,7 +177,6 @@ YAML_MAPPING_SCHEMA = vol.Schema({
 
 # Schema for UI options
 UI_OPTIONS_SCHEMA = vol.Schema({
-    vol.Required(CONF_USE_YAML, default=False): bool,
     vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
 })
 

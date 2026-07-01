@@ -11,9 +11,13 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 from .const import (
+    CONF_API_HOST,
+    CONF_API_PROXY_DISABLE_SECURITY,
+    CONF_API_SECRET,
+    CONF_API_USER,
+    DOMAIN,
     UI_OPTIONS_SCHEMA,
     DEVICE_SCHEMA,
-    CONF_USE_YAML,
     CONF_CUSTOM_DEVICES,
     CONF_YAML_CONTENT,
     CONF_ENABLE_API_EEDOMUS,
@@ -31,6 +35,7 @@ from .const import (
     CONF_PHP_FALLBACK_TIMEOUT,
     CONF_HTTP_REQUEST_TIMEOUT,
     DEFAULT_HTTP_REQUEST_TIMEOUT,
+    DEFAULT_HISTORY_RETRY_DELAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,7 +49,6 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
         super().__init__()
         self._config_entry = config_entry
         self.current_devices = []
-        self.use_yaml = False
         self.yaml_content = ""
         self.hass = None
 
@@ -54,17 +58,18 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
         This ensures that values set during config_flow are available in options_flow.
         Only copies values that haven't been explicitly set in options.
         """
-        # Start with existing options or empty dict
         if not self._config_entry.options:
             options = {}
         else:
             options = dict(self._config_entry.options)
         
-        # Copy values from config_entry.data (config_flow values)
-        # Only copy if the option hasn't been explicitly set yet
         config_data = self._config_entry.data
         
-        # Only copy if not already in options
+        # FIX : On injecte les identifiants directement dans le dictionnaire pour éviter le NameError
+        options[CONF_API_HOST] = self._config_entry.options.get(CONF_API_HOST, config_data.get(CONF_API_HOST, ""))
+        options[CONF_API_USER] = self._config_entry.options.get(CONF_API_USER, config_data.get(CONF_API_USER, ""))
+        options[CONF_API_SECRET] = self._config_entry.options.get(CONF_API_SECRET, config_data.get(CONF_API_SECRET, ""))
+
         if CONF_ENABLE_API_EEDOMUS not in options:
             options[CONF_ENABLE_API_EEDOMUS] = config_data.get(CONF_ENABLE_API_EEDOMUS, True)
         if CONF_ENABLE_API_PROXY not in options:
@@ -93,72 +98,90 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
         _LOGGER.debug("Copied config to options: %s", {k: v for k, v in options.items() if k not in ['api_user', 'api_secret']})
         return options
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return EedomusOptionsFlow(config_entry)
-
     async def async_step_init(self, user_input=None):
         """Manage the options with mode selection."""
+        errors = {}
+        
         if user_input is not None:
-            # Save all configuration options
-            options = {}
-            
-            # Debug: Log the user input
-            _LOGGER.debug("User input received: %s", {k: v for k, v in user_input.items() if k != CONF_YAML_CONTENT})
-            _LOGGER.debug("API Proxy Disable Security: %s", user_input.get(CONF_API_PROXY_DISABLE_SECURITY, False))
-            
-            # Save mode selection
-            self.use_yaml = user_input.get(CONF_USE_YAML, False)
-            options[CONF_USE_YAML] = self.use_yaml
-            
-            # Save API configuration options
-            options[CONF_ENABLE_API_EEDOMUS] = user_input.get(CONF_ENABLE_API_EEDOMUS, True)
-            options[CONF_ENABLE_API_PROXY] = user_input.get(CONF_ENABLE_API_PROXY, False)
-            options[CONF_ENABLE_HISTORY] = user_input.get(CONF_ENABLE_HISTORY, False)
-            options[CONF_HISTORY_RETRY_DELAY] = user_input.get(CONF_HISTORY_RETRY_DELAY, DEFAULT_HISTORY_RETRY_DELAY)
-            options[CONF_HISTORY_PERIPHERALS_PER_SCAN] = user_input.get(CONF_HISTORY_PERIPHERALS_PER_SCAN, DEFAULT_HISTORY_PERIPHERALS_PER_SCAN)
-            options[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 300)
-            options[CONF_ENABLE_SET_VALUE_RETRY] = user_input.get(CONF_ENABLE_SET_VALUE_RETRY, True)
-            options[CONF_ENABLE_WEBHOOK] = user_input.get(CONF_ENABLE_WEBHOOK, True)
-            options[CONF_API_PROXY_DISABLE_SECURITY] = user_input.get(CONF_API_PROXY_DISABLE_SECURITY, False)
-            options[CONF_PHP_FALLBACK_ENABLED] = user_input.get(CONF_PHP_FALLBACK_ENABLED, False)
-            options[CONF_PHP_FALLBACK_SCRIPT_NAME] = user_input.get(CONF_PHP_FALLBACK_SCRIPT_NAME, "fallback.php")
-            options[CONF_PHP_FALLBACK_TIMEOUT] = user_input.get(CONF_PHP_FALLBACK_TIMEOUT, 5)
-            options[CONF_HTTP_REQUEST_TIMEOUT] = user_input.get(CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT)
-            
-            # Store options for use in other steps
-            # Convert mappingproxy to dict if needed
-            if hasattr(self._config_entry.options, 'update'):
-                self._config_entry.options.update(options)
-            else:
-                # Handle the case where options is a mappingproxy
-                _LOGGER.debug("Options is a mappingproxy, creating new dict")
-                new_options = dict(self._config_entry.options)
-                new_options.update(options)
-                # Note: We can't actually update the mappingproxy, so we'll use it in the next step
-            
-            # Debug: Log the options being saved
-            _LOGGER.debug("Options to be saved: %s", {k: v for k, v in options.items() if k != CONF_YAML_CONTENT})
-            _LOGGER.debug("API Proxy Disable Security to be saved: %s", options.get(CONF_API_PROXY_DISABLE_SECURITY, False))
-            
-            # Create entry with only the options that are allowed
-            return self.async_create_entry(title="", data=options)
+            # --- 🛡️ CONTRÔLE DE LA CONNEXION À LA BOX EEDOMUS ---
+            if user_input.get(CONF_ENABLE_API_EEDOMUS, True):
+                try:
+                    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+                    from homeassistant.config_entries import ConfigEntry
+                    from .eedomus_client import EedomusClient
+                    
+                    session = async_get_clientsession(self.hass)
+                    
+                    # On simule un ConfigEntry temporaire pour tester les nouvelles saisies de l'utilisateur
+                    test_client = EedomusClient(
+                        session=session,
+                        config_entry=ConfigEntry(
+                            version=1,
+                            domain=DOMAIN,
+                            title=user_input[CONF_API_HOST],
+                            data={
+                                CONF_API_HOST: user_input[CONF_API_HOST],
+                                CONF_API_USER: user_input[CONF_API_USER],
+                                CONF_API_SECRET: user_input[CONF_API_SECRET],
+                                CONF_ENABLE_HISTORY: user_input.get(CONF_ENABLE_HISTORY, False),
+                                CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, 300),
+                                CONF_ENABLE_API_EEDOMUS: True,
+                                CONF_ENABLE_API_PROXY: user_input.get(CONF_ENABLE_API_PROXY, False),
+                                CONF_API_PROXY_DISABLE_SECURITY: user_input.get(CONF_API_PROXY_DISABLE_SECURITY, False),
+                            },
+                            source="user",
+                            unique_id=f"eedomus_{user_input[CONF_API_HOST]}",
+                            discovery_keys=None,
+                            minor_version=None,
+                            options={},
+                            subentries_data=None,
+                        )
+                    )
+                    
+                    # Test effectif de communication
+                    rdata = await test_client.auth_test()
+                    if not rdata or rdata.get("success", 0) != 1:
+                        errors["base"] = "cannot_connect"
+                except Exception as e:
+                    _LOGGER.error("Eedomus options validation failed: %s", e)
+                    errors["base"] = "cannot_connect"
 
-        # Get current options - ensure config values are copied to options
+            if not errors:
+                # Si aucune erreur, on procède à la sauvegarde des options
+                options = {}
+                options[CONF_API_HOST] = user_input[CONF_API_HOST]
+                options[CONF_API_USER] = user_input[CONF_API_USER]
+                options[CONF_API_SECRET] = user_input[CONF_API_SECRET]
+
+                options[CONF_ENABLE_API_EEDOMUS] = user_input.get(CONF_ENABLE_API_EEDOMUS, True)
+                options[CONF_ENABLE_API_PROXY] = user_input.get(CONF_ENABLE_API_PROXY, False)
+                options[CONF_ENABLE_HISTORY] = user_input.get(CONF_ENABLE_HISTORY, False)
+                options[CONF_HISTORY_RETRY_DELAY] = user_input.get(CONF_HISTORY_RETRY_DELAY, DEFAULT_HISTORY_RETRY_DELAY)
+                options[CONF_HISTORY_PERIPHERALS_PER_SCAN] = user_input.get(CONF_HISTORY_PERIPHERALS_PER_SCAN, DEFAULT_HISTORY_PERIPHERALS_PER_SCAN)
+                options[CONF_SCAN_INTERVAL] = user_input.get(CONF_SCAN_INTERVAL, 300)
+                options[CONF_ENABLE_SET_VALUE_RETRY] = user_input.get(CONF_ENABLE_SET_VALUE_RETRY, True)
+                options[CONF_ENABLE_WEBHOOK] = user_input.get(CONF_ENABLE_WEBHOOK, True)
+                options[CONF_API_PROXY_DISABLE_SECURITY] = user_input.get(CONF_API_PROXY_DISABLE_SECURITY, False)
+                options[CONF_PHP_FALLBACK_ENABLED] = user_input.get(CONF_PHP_FALLBACK_ENABLED, False)
+                options[CONF_PHP_FALLBACK_SCRIPT_NAME] = user_input.get(CONF_PHP_FALLBACK_SCRIPT_NAME, "fallback.php")
+                options[CONF_PHP_FALLBACK_TIMEOUT] = user_input.get(CONF_PHP_FALLBACK_TIMEOUT, 5)
+                options[CONF_HTTP_REQUEST_TIMEOUT] = user_input.get(CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT)
+                
+                return self.async_create_entry(title="", data=options)
+
+        # Récupération des options courantes (sécurisées par le FIX)
         current_options = self._copy_config_to_options()
-        self.use_yaml = current_options.get(CONF_USE_YAML, False)
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Required(CONF_USE_YAML, default=self.use_yaml): bool,
+                vol.Required(CONF_API_HOST, default=current_options.get(CONF_API_HOST, "")): str,
+                vol.Required(CONF_API_USER, default=current_options.get(CONF_API_USER, "")): str,
+                vol.Required(CONF_API_SECRET, default=current_options.get(CONF_API_SECRET, "")): str,
                 vol.Optional(CONF_ENABLE_API_EEDOMUS, default=current_options.get(CONF_ENABLE_API_EEDOMUS, True)): bool,
                 vol.Optional(CONF_SCAN_INTERVAL, default=current_options.get(CONF_SCAN_INTERVAL, 300)): int,
                 vol.Optional(CONF_ENABLE_API_PROXY, default=current_options.get(CONF_ENABLE_API_PROXY, False)): bool,
                 vol.Optional(CONF_ENABLE_HISTORY, default=current_options.get(CONF_ENABLE_HISTORY, False)): bool,
-                vol.Optional(CONF_SCAN_INTERVAL, default=current_options.get(CONF_SCAN_INTERVAL, 300)): int,
                 vol.Optional(CONF_HTTP_REQUEST_TIMEOUT, default=current_options.get(CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT)): int,
                 vol.Optional(CONF_ENABLE_SET_VALUE_RETRY, default=current_options.get(CONF_ENABLE_SET_VALUE_RETRY, True)): bool,
                 vol.Optional(CONF_ENABLE_WEBHOOK, default=current_options.get(CONF_ENABLE_WEBHOOK, True)): bool,
@@ -167,11 +190,17 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_PHP_FALLBACK_SCRIPT_NAME, default=current_options.get(CONF_PHP_FALLBACK_SCRIPT_NAME, "fallback.php")): str,
                 vol.Optional(CONF_PHP_FALLBACK_TIMEOUT, default=current_options.get(CONF_PHP_FALLBACK_TIMEOUT, 5)): int,
             }),
+            errors=errors,
             description_placeholders={
-                "current_mode": "Custom Mapping" if self.use_yaml else "UI (DISABLED)",
                 "docs_link": "https://github.com/Dan4Jer/hass-eedomus/blob/main/docs/README.md"
             }
         )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        return EedomusOptionsFlow(config_entry)
 
     async def async_step_ui(self, user_input=None):
         """Handle UI-based device configuration."""
@@ -191,7 +220,6 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
             if success:
                 # Update options
                 options = {
-                    CONF_USE_YAML: False,  # UI mode
                     CONF_CUSTOM_DEVICES: devices
                 }
                 # Add API configuration options - ensure config values are preserved
@@ -234,13 +262,11 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="ui",
             data_schema=vol.Schema({
-                vol.Required(CONF_USE_YAML, default=False): False,
                 vol.Optional(CONF_CUSTOM_DEVICES, default=current_devices): current_devices,
                 vol.Optional(CONF_ENABLE_API_EEDOMUS, default=current_options.get(CONF_ENABLE_API_EEDOMUS, True)): bool,
                 vol.Optional(CONF_SCAN_INTERVAL, default=current_options.get(CONF_SCAN_INTERVAL, 300)): int,
                 vol.Optional(CONF_ENABLE_API_PROXY, default=current_options.get(CONF_ENABLE_API_PROXY, False)): bool,
                 vol.Optional(CONF_ENABLE_HISTORY, default=current_options.get(CONF_ENABLE_HISTORY, False)): bool,
-                vol.Optional(CONF_SCAN_INTERVAL, default=current_options.get(CONF_SCAN_INTERVAL, 300)): int,
                 vol.Optional(CONF_HTTP_REQUEST_TIMEOUT, default=current_options.get(CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT)): int,
                 vol.Optional(CONF_ENABLE_SET_VALUE_RETRY, default=current_options.get(CONF_ENABLE_SET_VALUE_RETRY, True)): bool,
                 vol.Optional(CONF_ENABLE_WEBHOOK, default=current_options.get(CONF_ENABLE_WEBHOOK, True)): bool,
@@ -281,7 +307,6 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
                 if success:
                     # Update options
                     options = {
-                        CONF_USE_YAML: True,
                         CONF_YAML_CONTENT: yaml_content  # Store for re-editing
                     }
                     # Add API configuration options - ensure config values are preserved
