@@ -52,7 +52,13 @@ class EedomusScene(EedomusEntity, Scene):
         """Initialize the scene."""
         super().__init__(coordinator, periph_id)
         self._attr_name = self.coordinator.data[periph_id]["name"]
-        self._attr_unique_id = f"{periph_id}_scene"
+        
+        # --- MODIFICATION : Formatage unique_id ---
+        # Ajout de l'identifiant de la box (entry_id) pour le multi-box
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_{periph_id}_scene"
+        # ------------------------------------------
+        
         _LOGGER.debug(
             "Initializing scene entity for %s (%s)", self._attr_name, periph_id
         )

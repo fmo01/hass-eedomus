@@ -28,7 +28,12 @@ class EedomusHistorySensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._periph_id = periph_id
         self._periph_name = periph_name
-        self._attr_unique_id = f"eedomus_{periph_id}_history"
+        
+        # --- MODIFICATION: Unique ID Multi-Box ---
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_{periph_id}_history"
+        # -----------------------------------------
+        
         self._attr_device_info = device_info
         self._attr_name = f"{periph_name} (History)"
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
@@ -69,7 +74,12 @@ class EedomusHistoryProgressSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._periph_id = periph_id
         self._periph_name = periph_name
-        self._attr_unique_id = f"eedomus_history_progress_{periph_id}"
+        
+        # --- MODIFICATION: Unique ID Multi-Box ---
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_history_progress_{periph_id}"
+        # -----------------------------------------
+        
         self._attr_device_info = device_info
         self._attr_name = f"History Progress: {periph_name}"
         self._attr_device_class = SensorDeviceClass.ENUM
@@ -118,7 +128,12 @@ class EedomusGlobalHistoryProgressSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, device_info: DeviceInfo):
         """Initialize the global history progress sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = "eedomus_history_progress_global"
+        
+        # --- MODIFICATION: Unique ID Multi-Box ---
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_history_progress_global"
+        # -----------------------------------------
+        
         self._attr_device_info = device_info
         self._attr_name = "Eedomus History Retrieval Progress"
         self._attr_device_class = SensorDeviceClass.ENUM
@@ -163,7 +178,12 @@ class EedomusHistoryStatsSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, device_info: DeviceInfo):
         """Initialize the history stats sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = "eedomus_history_stats"
+        
+        # --- MODIFICATION: Unique ID Multi-Box ---
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_history_stats"
+        # -----------------------------------------
+        
         self._attr_device_info = device_info
         self._attr_name = "Eedomus History Retrieval Stats"
         self._attr_device_class = SensorDeviceClass.DATA_SIZE

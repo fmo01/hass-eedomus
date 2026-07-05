@@ -211,6 +211,13 @@ async def async_setup_services(hass: HomeAssistant, coordinator) -> None:
                     is_orphaned = False
                     if entity_entry.unique_id:
                         # Extract peripheral_id from unique_id (format usually includes the peripheral_id)
+                        # --- COMMENTAIRE D'ANALYSE ---
+                        # Cette logique de découpage restera parfaitement valide !
+                        # Format du unique_id actuel : "eedomus_ENTRYIDALPHANUM_PERIPHID"
+                        # Puisque 'entry_id' (ex: '01KT1...') contient des lettres et que 
+                        # 'periph_id' (ex: '114365') est purement numérique, "part.isdigit()" 
+                        # trouvera toujours le periph_id sans se tromper.
+                        # -----------------------------
                         unique_id_parts = entity_entry.unique_id.split('_')
                         for part in unique_id_parts:
                             if part.isdigit() and part not in current_peripheral_ids:
@@ -261,6 +268,10 @@ async def async_setup_services(hass: HomeAssistant, coordinator) -> None:
             
             _LOGGER.info(f"Cleanup completed: {removed_count} entities removed out of {len(entities_to_remove)} identified")
             
+            # --- MODIFICATION ---
+            # Suppression du bloc dupliqué qui faisait planter le script à cet endroit
+            # --------------------
+
             return {
                 "success": True,
                 "entities_analyzed": entities_analyzed,
@@ -351,23 +362,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator) -> None:
             
         except Exception as err:
             _LOGGER.error("❌ Device cleanup service failed: %s", err)
-            return {
-                "success": False,
-                "error": str(err)
-            }
-
-    # Register services
-
-            return {
-                "success": True,
-                "entities_analyzed": entities_analyzed,
-                "entities_considered": entities_considered,
-                "entities_identified": len(entities_to_remove),
-                "entities_removed": removed_count
-            }
-            
-        except Exception as err:
-            _LOGGER.error("❌ Cleanup service failed: %s", err)
             return {
                 "success": False,
                 "error": str(err)

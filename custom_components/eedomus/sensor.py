@@ -521,7 +521,13 @@ class EedomusHistoryProgressSensor(EedomusEntity, SensorEntity):
 
     def __init__(self, coordinator, device_data):
         super().__init__(coordinator, periph_id=device_data["periph_id"])
-        self._attr_unique_id = f"eedomus_history_progress_{device_data['periph_id']}"
+        
+        # --- MODIFICATION: Création unique_id (Multi-Box) ---
+        # Ajout de l'entry_id pour assurer la compatibilité multi-box et correspondre à la migration
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"{box_id}_history_progress_{device_data['periph_id']}"
+        # ----------------------------------------------------
+        
         self._attr_name = f"{device_data['name']} (History Progress)"
         self._attr_icon = "mdi:progress-clock"
 
@@ -563,7 +569,13 @@ class EedomusBatterySensor(EedomusEntity, SensorEntity):
         # Configure battery sensor attributes
         device_name = self.coordinator.data.get(periph_id, {}).get("name", "Unknown Device")
         self._attr_name = f"{device_name} Battery"
-        self._attr_unique_id = f"{periph_id}_battery"
+        
+        # --- MODIFICATION: Création unique_id (Multi-Box) ---
+        # Ajout de l'entry_id pour assurer la compatibilité multi-box et correspondre à la migration
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_{periph_id}_battery"
+        # ----------------------------------------------------
+        
         self._attr_device_class = "battery"
         self._attr_native_unit_of_measurement = "%"
         self._attr_state_class = "measurement"

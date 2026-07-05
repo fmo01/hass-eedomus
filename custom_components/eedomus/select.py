@@ -63,7 +63,13 @@ class EedomusSelect(EedomusEntity, SelectEntity):
         """Initialize the select entity."""
         super().__init__(coordinator, periph_id)
         self._attr_name = self.coordinator.data[periph_id]["name"]
-        self._attr_unique_id = f"{periph_id}_select"
+        
+        # --- MODIFICATION : Formatage unique_id ---
+        # Ajout de l'identifiant de la box (entry_id) pour le multi-box
+        box_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"eedomus_{box_id}_{periph_id}_select"
+        # ------------------------------------------
+        
         self._attr_current_option = self.coordinator.data[periph_id].get(
             "last_value", ""
         )

@@ -135,11 +135,19 @@ class EedomusEntity(CoordinatorEntity):
             _LOGGER.warning(f"Peripheral data not found for {periph_id}, using fallback")
             self._attr_name = f"Unknown Device ({periph_id})"
             self._parent_id = None
-            self._attr_unique_id = f"{periph_id}"
+            
+            # --- MODIFICATION: Création unique_id (Fallback Multi-Box) ---
+            # Ajout de l'entry_id pour éviter la collision entre plusieurs box Eedomus
+            self._attr_unique_id = f"eedomus_{self.coordinator.config_entry.entry_id}_{periph_id}"
+            # -------------------------------------------------------------
         else:
             self._attr_name = periph_data.get("name", f"Unknown Device ({periph_id})")
             self._parent_id = periph_data.get("parent_periph_id", None)
-            self._attr_unique_id = f"{periph_id}"
+            
+            # --- MODIFICATION: Création unique_id (Multi-Box) ---
+            # Ajout de l'entry_id pour que chaque Box ait son propre registre d'identifiants
+            self._attr_unique_id = f"eedomus_{self.coordinator.config_entry.entry_id}_{periph_id}"
+            # -------------------------------------------------------------
 
     def _get_periph_data(self, periph_id: str = None):
         """Get peripheral data from coordinator.
