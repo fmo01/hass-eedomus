@@ -8,6 +8,7 @@ on:
     branches: [ main, unstable ]
   pull_request:
     branches: [ main, unstable ]
+  workflow_dispatch: # Permet le déclenchement manuel
 
 jobs:
   lint:
@@ -30,25 +31,19 @@ jobs:
         pip install black==23.12.1 flake8==6.1.0 isort==5.13.2
     
     - name: Run Black
-      run: |
-        echo "Running Black check..."
-        black --check custom_components/eedomus/ || echo "Black check failed"
-        echo "Black check completed"
+      # On enlève le "|| echo" pour que l'étape échoue vraiment si le code n'est pas bon
+      run: black --check custom_components/eedomus/
     
     - name: Run isort
-      run: |
-        echo "Running isort check..."
-        isort --check custom_components/eedomus/ || echo "isort check failed"
-        echo "isort check completed"
+      if: always() # Continue même si Black a échoué
+      run: isort --check custom_components/eedomus/
     
     - name: Run flake8
-      run: |
-        echo "Running flake8 check..."
-        flake8 custom_components/eedomus/ --max-line-length=120 --extend-ignore=E203,F401,F821,E501,E713,E714,E721,F541,F841,E402,E266,F601 || echo "flake8 check failed"
-        echo "flake8 check completed"
+      if: always() # Continue même si Black ou isort ont échoué
+      run: flake8 custom_components/eedomus/ --max-line-length=120 --extend-ignore=E203,F401,F821,E501,E713,E714,E721,F541,F841,E402,E266,F601
     
     - name: Auto-fix formatting
-      if: failure()
+      if: failure() # Se déclenche uniquement si l'une des étapes précédentes a réellement échoué
       run: |
         black custom_components/eedomus/
         isort custom_components/eedomus/
