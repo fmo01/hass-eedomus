@@ -5,6 +5,7 @@ on:
     branches: [ main, unstable ]
   pull_request:
     branches: [ main, unstable ]
+  workflow_dispatch: # Permet le déclenchement manuel
 
 jobs:
   test:
