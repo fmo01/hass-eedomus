@@ -299,7 +299,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if CONF_ENABLE_HISTORY in coordinator.config_entry.options:
             history_from_options = coordinator.config_entry.options[CONF_ENABLE_HISTORY]
             # Only use options if they're different from the default
-            if history_from_options != False:  # Only use options if explicitly enabled
+            if history_from_options is not False:  # Only use options if explicitly enabled
                 history_enabled = history_from_options
             else:
                 # If options has False, check if config has True (options might have been reset)

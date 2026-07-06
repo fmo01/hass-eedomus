@@ -270,7 +270,7 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                         return "stale_data"
                     elif time_since_update > 1800:  # 30 minutes
                         return "delayed_update"
-                except:
+                except (ValueError, TypeError):
                     pass
 
             # Check if temperature is within expected range
@@ -306,7 +306,7 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
                         return "normal"
                     else:
                         return "delayed"
-                except:
+                except (ValueError, TypeError):
                     return "unknown_timestamp"
             return "no_timestamp"
         except Exception as e:

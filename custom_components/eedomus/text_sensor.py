@@ -138,7 +138,7 @@ class EedomusTextSensor(EedomusEntity, SensorEntity):
                 return entity_specifics["value_icons"].get(
                     last_value, entity_specifics.get("icon", "mdi:text")
                 )
-            except:
+            except (ValueError, TypeError):
                 pass
 
         # Check for static icon in YAML
