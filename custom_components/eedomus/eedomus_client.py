@@ -14,11 +14,11 @@ from async_timeout import timeout as async_timeout
 from homeassistant.config_entries import ConfigEntry
 
 from .const import (
+    CONF_HTTP_REQUEST_TIMEOUT,
+    DEFAULT_HTTP_REQUEST_TIMEOUT,
     DEFAULT_PHP_FALLBACK_ENABLED,
     DEFAULT_PHP_FALLBACK_SCRIPT_NAME,
     DEFAULT_PHP_FALLBACK_TIMEOUT,
-    DEFAULT_HTTP_REQUEST_TIMEOUT,
-    CONF_HTTP_REQUEST_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ EEDOMUS_ERROR_CODES = {
 }
 
 HISTORY_API_URL = "https://api.eedomus.com"
+
 
 class EedomusClient:
     """Client for interacting with eedomus API with proper encoding handling."""
@@ -82,7 +83,9 @@ class EedomusClient:
         # Configuration du timeout HTTP
         self.http_request_timeout = config_entry.options.get(
             CONF_HTTP_REQUEST_TIMEOUT,
-            config_entry.data.get(CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT),
+            config_entry.data.get(
+                CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT
+            ),
         )
 
     async def fetch_data(
@@ -128,7 +131,7 @@ class EedomusClient:
 
                     # Essayer plusieurs encodages pour la réponse
                     response_text = self._decode_response(raw_data)
-                    #_LOGGER.debug(" FMO  url : %s param %s reponse %s", url, params, raw_data)
+                    # _LOGGER.debug(" FMO  url : %s param %s reponse %s", url, params, raw_data)
 
                     # Parsing de la réponse
                     try:
@@ -158,10 +161,12 @@ class EedomusClient:
                         return self._format_error_response(
                             "Invalid JSON response", response_text
                         )
-                    
 
         except asyncio.TimeoutError:
-            _LOGGER.warning("⏳ Request timed out for %s - will retry on next refresh cycle", endpoint)
+            _LOGGER.warning(
+                "⏳ Request timed out for %s - will retry on next refresh cycle",
+                endpoint,
+            )
             return self._format_error_response("Request timed out", http_status=408)
 
         except aiohttp.ClientError as e:
@@ -452,24 +457,24 @@ class EedomusClient:
 
     async def get_periph_info(self, periph_id: str) -> Optional[Dict[str, Any]]:
         """Get information about a specific peripheral.
-        
+
         Args:
             periph_id: The peripheral ID
-            
+
         Returns:
             Dictionary with peripheral information or None if error
         """
         _LOGGER.debug("Getting info for peripheral %s", periph_id)
-        
+
         try:
             # Use getPeriphList to get device info
             # We'll filter by periph_id from the list
             params = {
                 "action": "getPeriphList",
             }
-            
+
             response = await self.fetch_data("peripherals", params)
-            
+
             if response and response.get("success") == 1:
                 peripherals = response.get("body", [])
                 for periph in peripherals:
@@ -487,19 +492,19 @@ class EedomusClient:
     async def get_device_history_count(self, periph_id: str) -> int:
         """
         Estime le nombre total de points d'historique disponibles pour un périphérique.
-        
+
         Args:
             periph_id (str): ID du périphérique.
-            
+
         Returns:
             int: Estimation du nombre total de points d'historique.
         """
         # Use a simple default estimation since we can't reliably get device info
         # The API doesn't provide a method to get individual device info
         # or the full list of devices with their details
-        
+
         _LOGGER.debug("Using default history count estimation for %s", periph_id)
-        
+
         # Default estimation: 1 year of data at 1 point per hour
         return 8760  # 365 days * 24 hours
 

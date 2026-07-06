@@ -8,7 +8,7 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, COORDINATOR
+from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,10 +26,13 @@ async def async_setup_entry(
     # First pass: ensure all peripherals have proper mapping
     for periph_id, periph in all_peripherals.items():
         if "ha_entity" not in coordinator.data[periph_id]:
-            eedomus_mapping = map_device_to_ha_entity(periph, coordinator.data, coordinator=coordinator)
+            eedomus_mapping = map_device_to_ha_entity(
+                periph, coordinator.data, coordinator=coordinator
+            )
             coordinator.data[periph_id].update(eedomus_mapping)
             # S'assurer que le mapping est enregistré dans le registre global
             from .entity import _register_device_mapping
+
             _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
 
     # Second pass: create select entities
@@ -63,13 +66,13 @@ class EedomusSelect(EedomusEntity, SelectEntity):
         """Initialize the select entity."""
         super().__init__(coordinator, periph_id)
         self._attr_name = self.coordinator.data[periph_id]["name"]
-        
+
         # --- MODIFICATION : Formatage unique_id ---
         # Ajout de l'identifiant de la box (entry_id) pour le multi-box
         box_id = coordinator.config_entry.entry_id
         self._attr_unique_id = f"eedomus_{box_id}_{periph_id}_select"
         # ------------------------------------------
-        
+
         self._attr_current_option = self.coordinator.data[periph_id].get(
             "last_value", ""
         )
@@ -157,7 +160,9 @@ class EedomusSelect(EedomusEntity, SelectEntity):
             )
 
             # Send the selected option to eedomus
-            result = await self.coordinator.client.set_periph_value(self._periph_id, eedomus_value)
+            result = await self.coordinator.client.set_periph_value(
+                self._periph_id, eedomus_value
+            )
 
             if result.get("success", 0) == 1:
                 _LOGGER.debug(

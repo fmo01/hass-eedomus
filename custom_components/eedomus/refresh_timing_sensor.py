@@ -4,37 +4,48 @@ Provides virtual sensors to monitor and analyze refresh performance metrics.
 """
 
 from __future__ import annotations
-from datetime import datetime
-import logging
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+import logging
+from datetime import datetime
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.device_registry import async_get as async_get_device_registry
-from homeassistant.const import EntityCategory
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+
 # --- MODIFICATION: Logique unifiée d'extraction de l'IP ---
 def get_clean_box_name_from_coord(coordinator) -> tuple[str, str]:
     """Extrait proprement l'IP pour formater le nom de la Box."""
-    host = str(coordinator.config_entry.data.get("host", coordinator.config_entry.title))
+    host = str(
+        coordinator.config_entry.data.get("host", coordinator.config_entry.title)
+    )
     if "Eedomus (" in host:
         try:
             host = host.split("Eedomus (")[1].split(")")[0]
         except Exception:
             pass
     return host, f"Box eedomus ({host})"
+
+
 # --------------------------------------------------------
+
 
 async def async_get_eedomus_box_device(hass: HomeAssistant, coordinator) -> DeviceInfo:
     """Get or create the eedomus box device info."""
     host, box_name = get_clean_box_name_from_coord(coordinator)
     device_registry = async_get_device_registry(hass)
-    
+
     # --- MODIFICATION: Utilisation de entry.entry_id pour l'identifiant et du nom unifié ---
     device_registry.async_get_or_create(
         config_entry_id=coordinator.config_entry.entry_id,
@@ -44,7 +55,7 @@ async def async_get_eedomus_box_device(hass: HomeAssistant, coordinator) -> Devi
         model="Eedomus Box",
         sw_version="Unknown",
     )
-    
+
     return DeviceInfo(
         identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
         name=box_name,
@@ -54,6 +65,7 @@ async def async_get_eedomus_box_device(hass: HomeAssistant, coordinator) -> Devi
     )
     # -------------------------------------------------------------------------------------
 
+
 class EedomusRefreshTimingSensor(CoordinatorEntity, SensorEntity):
     """Base class for refresh timing sensors."""
 
@@ -61,25 +73,25 @@ class EedomusRefreshTimingSensor(CoordinatorEntity, SensorEntity):
         """Initialize the refresh timing sensor."""
         super().__init__(coordinator)
         self._sensor_type = sensor_type
-        
+
         # --- MODIFICATION: Extraction propre de l'IP pour garantir des identifiants uniques ---
         host, box_name = get_clean_box_name_from_coord(coordinator)
         box_id = coordinator.config_entry.entry_id
-        
+
         # Attributs définis directement en mémoire pour éviter d'être écrasés
         self._attr_name = f"Eedomus {sensor_type} ({host})"
-        
+
         slug = sensor_type.lower().replace(" ", "_").replace("eedomus_", "")
         # unique_id basé sur l'entry_id pour éviter les collisions multi-box
         self._attr_unique_id = f"eedomus_{box_id}_{slug}_timing"
-        
+
         self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_device_class = SensorDeviceClass.DURATION
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_has_entity_name = True
-        
+
         # Rattachement strict à l'appareil unique de la Box
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"eedomus_box_{box_id}")},
@@ -100,8 +112,9 @@ class EedomusRefreshTimingSensor(CoordinatorEntity, SensorEntity):
         """Return additional state attributes."""
         return {
             "last_updated": datetime.now().isoformat(),
-            "sensor_type": self._sensor_type
+            "sensor_type": self._sensor_type,
         }
+
 
 class EedomusAPITimeSensor(EedomusRefreshTimingSensor):
     """Sensor for tracking API response time."""
@@ -113,18 +126,25 @@ class EedomusAPITimeSensor(EedomusRefreshTimingSensor):
     @property
     def native_value(self):
         """Return the current API time."""
-        return round(self.coordinator._last_api_time, 3) if hasattr(self.coordinator, '_last_api_time') else 0.0
+        return (
+            round(self.coordinator._last_api_time, 3)
+            if hasattr(self.coordinator, "_last_api_time")
+            else 0.0
+        )
 
     @property
     def extra_state_attributes(self):
         """Return additional state attributes."""
         attrs = super().extra_state_attributes
-        attrs.update({
-            "description": "Time spent waiting for eedomus API responses",
-            "component": "api",
-            "unit": "seconds"
-        })
+        attrs.update(
+            {
+                "description": "Time spent waiting for eedomus API responses",
+                "component": "api",
+                "unit": "seconds",
+            }
+        )
         return attrs
+
 
 class EedomusProcessingTimeSensor(EedomusRefreshTimingSensor):
     """Sensor for tracking data processing time."""
@@ -136,18 +156,25 @@ class EedomusProcessingTimeSensor(EedomusRefreshTimingSensor):
     @property
     def native_value(self):
         """Return the current processing time."""
-        return round(self.coordinator._last_processing_time, 3) if hasattr(self.coordinator, '_last_processing_time') else 0.0
+        return (
+            round(self.coordinator._last_processing_time, 3)
+            if hasattr(self.coordinator, "_last_processing_time")
+            else 0.0
+        )
 
     @property
     def extra_state_attributes(self):
         """Return additional state attributes."""
         attrs = super().extra_state_attributes
-        attrs.update({
-            "description": "Time spent processing eedomus API responses",
-            "component": "processing",
-            "unit": "seconds"
-        })
+        attrs.update(
+            {
+                "description": "Time spent processing eedomus API responses",
+                "component": "processing",
+                "unit": "seconds",
+            }
+        )
         return attrs
+
 
 class EedomusTotalRefreshTimeSensor(EedomusRefreshTimingSensor):
     """Sensor for tracking total refresh time."""
@@ -159,18 +186,25 @@ class EedomusTotalRefreshTimeSensor(EedomusRefreshTimingSensor):
     @property
     def native_value(self):
         """Return the current total refresh time."""
-        return round(self.coordinator._last_refresh_time, 3) if hasattr(self.coordinator, '_last_refresh_time') else 0.0
+        return (
+            round(self.coordinator._last_refresh_time, 3)
+            if hasattr(self.coordinator, "_last_refresh_time")
+            else 0.0
+        )
 
     @property
     def extra_state_attributes(self):
         """Return additional state attributes."""
         attrs = super().extra_state_attributes
-        attrs.update({
-            "description": "Total time for complete refresh cycle",
-            "component": "total",
-            "unit": "seconds"
-        })
+        attrs.update(
+            {
+                "description": "Total time for complete refresh cycle",
+                "component": "total",
+                "unit": "seconds",
+            }
+        )
         return attrs
+
 
 class EedomusProcessedDevicesSensor(EedomusRefreshTimingSensor):
     """Sensor for tracking number of processed devices."""
@@ -183,17 +217,23 @@ class EedomusProcessedDevicesSensor(EedomusRefreshTimingSensor):
     @property
     def native_value(self):
         """Return the current number of processed devices."""
-        return int(self.coordinator._last_processed_devices) if hasattr(self.coordinator, '_last_processed_devices') else 0
+        return (
+            int(self.coordinator._last_processed_devices)
+            if hasattr(self.coordinator, "_last_processed_devices")
+            else 0
+        )
 
     @property
     def extra_state_attributes(self):
         """Return additional state attributes."""
         attrs = super().extra_state_attributes
-        attrs.update({
-            "description": "Number of devices processed in last refresh",
-            "component": "devices",
-            "unit": "count"
-        })
+        attrs.update(
+            {
+                "description": "Number of devices processed in last refresh",
+                "component": "devices",
+                "unit": "count",
+            }
+        )
         return attrs
 
 
@@ -208,20 +248,28 @@ class EedomusEndpointTimingSensor(EedomusRefreshTimingSensor):
     @property
     def native_value(self):
         """Return the current timing for this endpoint."""
-        if hasattr(self.coordinator, '_endpoint_timings'):
-            return round(self.coordinator._endpoint_timings.get(self._endpoint_name, 0.0), 3)
+        if hasattr(self.coordinator, "_endpoint_timings"):
+            return round(
+                self.coordinator._endpoint_timings.get(self._endpoint_name, 0.0), 3
+            )
         return 0.0
 
     @property
     def extra_state_attributes(self):
         """Return additional state attributes."""
         attrs = super().extra_state_attributes
-        attrs.update({
-            "description": f"Time spent on {self._endpoint_name} API endpoint",
-            "endpoint": self._endpoint_name,
-            "unit": "seconds",
-            "call_count": self.coordinator._endpoint_call_counts.get(self._endpoint_name, 0) if hasattr(self.coordinator, '_endpoint_call_counts') else 0
-        })
+        attrs.update(
+            {
+                "description": f"Time spent on {self._endpoint_name} API endpoint",
+                "endpoint": self._endpoint_name,
+                "unit": "seconds",
+                "call_count": self.coordinator._endpoint_call_counts.get(
+                    self._endpoint_name, 0
+                )
+                if hasattr(self.coordinator, "_endpoint_call_counts")
+                else 0,
+            }
+        )
         return attrs
 
 
@@ -256,10 +304,13 @@ class EedomusPartialRefreshSensor(EedomusEndpointTimingSensor):
         """Initialize the partial refresh timing sensor."""
         super().__init__(coordinator, "partial_refresh", "mdi:refresh")
 
-async def async_setup_refresh_timing_sensors(hass: HomeAssistant, coordinator, device_registry):
+
+async def async_setup_refresh_timing_sensors(
+    hass: HomeAssistant, coordinator, device_registry
+):
     """Set up refresh timing sensors and attach them to the eedomus box device."""
     host, box_name = get_clean_box_name_from_coord(coordinator)
-    
+
     # Get or create the main eedomus box device
     # --- MODIFICATION: Utilisation de l'entry_id pour l'identifiant d'appareil et du nom unifié ---
     box_device = device_registry.async_get_or_create(

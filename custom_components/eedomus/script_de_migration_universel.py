@@ -6,9 +6,12 @@ import shutil
 REGISTRY_PATH = ".storage/core.entity_registry"
 BACKUP_PATH = ".storage/core.entity_registry.backup_eedomus"
 
+
 def migrate_ids():
     if not os.path.exists(REGISTRY_PATH):
-        print(f"❌ Erreur : Le fichier {REGISTRY_PATH} est introuvable. Exécutez ce script depuis le dossier /config.")
+        print(
+            f"❌ Erreur : Le fichier {REGISTRY_PATH} est introuvable. Exécutez ce script depuis le dossier /config."
+        )
         return
 
     # 1. Création d'une sauvegarde de sécurité
@@ -35,14 +38,14 @@ def migrate_ids():
             # ========================================================
             # ÉTAPE A : NORMALISATION
             # On retire les préfixes éventuels ("eedomus_" ou "{entry_id}_")
-            # pour isoler la "racine" de l'identifiant, quel que soit 
+            # pour isoler la "racine" de l'identifiant, quel que soit
             # l'état actuel de l'entité (jamais migrée, ou partiellement).
             # ========================================================
             temp_id = old_id
             if temp_id.startswith("eedomus_"):
-                temp_id = temp_id[8:] # retire "eedomus_"
+                temp_id = temp_id[8:]  # retire "eedomus_"
             if temp_id.startswith(f"{entry_id}_"):
-                temp_id = temp_id[len(entry_id)+1:] # retire "IDDELABOX_"
+                temp_id = temp_id[len(entry_id) + 1 :]  # retire "IDDELABOX_"
 
             new_id = ""
             domain = entity.get("domain")
@@ -55,12 +58,12 @@ def migrate_ids():
                 new_id = f"eedomus_{entry_id}_history_stats"
             elif temp_id == "history_progress_global":
                 new_id = f"eedomus_{entry_id}_history_progress_global"
-                
+
             # Historique (Anciennes conventions qui commençaient par history_progress)
             elif temp_id.startswith("history_progress_"):
                 periph = temp_id.replace("history_progress_", "")
                 new_id = f"eedomus_{entry_id}_{periph}_history_progress"
-                
+
             # Les cas avec suffixes classiques
             elif temp_id.endswith("_history_progress"):
                 periph = temp_id.replace("_history_progress", "")
@@ -98,12 +101,17 @@ def migrate_ids():
 
     # 4. Écriture du fichier modifié
     if modified_count > 0:
-        print(f"\n✍️ Écriture des modifications ({modified_count} entités mises à jour)...")
+        print(
+            f"\n✍️ Écriture des modifications ({modified_count} entités mises à jour)..."
+        )
         with open(REGISTRY_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print("✅ Migration terminée avec succès ! Vous pouvez redémarrer Home Assistant.")
+        print(
+            "✅ Migration terminée avec succès ! Vous pouvez redémarrer Home Assistant."
+        )
     else:
         print("\nℹ️ Aucune entité à migrer. Elles ont toutes déjà le format parfait !")
+
 
 if __name__ == "__main__":
     migrate_ids()

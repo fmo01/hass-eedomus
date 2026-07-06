@@ -4,19 +4,12 @@ from typing import Any, Dict
 
 # Ensure required imports are available
 import voluptuous as vol
-from homeassistant.components.light import (
-    ColorMode,
-    LightEntityFeature,
-)
+from homeassistant.components.light import ColorMode, LightEntityFeature
 from homeassistant.const import Platform
 from homeassistant.helpers import config_validation as cv
 
 try:
-    from .private_const import (
-        DEFAULT_API_HOST,
-        DEFAULT_API_SECRET,
-        DEFAULT_API_USER,
-    )
+    from .private_const import DEFAULT_API_HOST, DEFAULT_API_SECRET, DEFAULT_API_USER
 except ImportError:
     # Valeurs par défaut pour les configurations non définies dans private_const.py
     # Ces valeurs seront utilisées si le fichier private_const.py n'existe pas
@@ -53,8 +46,12 @@ DEFAULT_CONF_ENABLE_API_PROXY = False
 DEFAULT_ENABLE_API_PROXY = False  # API Proxy disabled by default in options
 DEFAULT_CONF_ENABLE_HISTORY = False  # History disabled by default (temporarily)
 DEFAULT_ENABLE_HISTORY = False  # History disabled by default (temporarily)
-DEFAULT_HISTORY_RETRY_DELAY = 24  # 24 hours  # History retry delay in hours (24 hours by default)
-DEFAULT_HISTORY_PERIPHERALS_PER_SCAN = 1  # History: 1 peripheral per scan interval by default
+DEFAULT_HISTORY_RETRY_DELAY = (
+    24  # 24 hours  # History retry delay in hours (24 hours by default)
+)
+DEFAULT_HISTORY_PERIPHERALS_PER_SCAN = (
+    1  # History: 1 peripheral per scan interval by default
+)
 DEFAULT_ENABLE_SET_VALUE_RETRY = True  # Set value retry enabled by default
 DEFAULT_ENABLE_WEBHOOK = True  # Webhook enabled by default
 DEFAULT_REMOVE_ENTITIES = False  # Remove entities on uninstall disabled by default
@@ -91,16 +88,16 @@ ATTR_LAST_UPDATED = "last_updated"
 # Note: If multiple eedomus keys map to the same HA key, the last one takes precedence.
 EEDOMUS_TO_HA_ATTR_MAPPING = {
     ATTR_VALUE_LIST: ATTR_VALUE_LIST,
-    "name" : "name",
-    "room_name": "room",       
-    "value_type": "type",      
+    "name": "name",
+    "room_name": "room",
+    "value_type": "type",
     "usage_id": "usage_id",
     "usage_name": "usage_name",
-    "last_value" : "last_value",
-    "last_value_text" : "last_value_text",
-    "last_value_change" : "last_value_change",
-    "creation_date" : "creation_date",
-#    "values" : "values", #all values from value_list
+    "last_value": "last_value",
+    "last_value_text": "last_value_text",
+    "last_value_change": "last_value_change",
+    "creation_date": "creation_date",
+    #    "values" : "values", #all values from value_list
 }
 
 # Domain
@@ -152,31 +149,38 @@ CONF_CUSTOM_DEVICES = "custom_devices"
 CONF_YAML_CONTENT = "yaml_content"
 
 # Device Mapping Schema
-DEVICE_SCHEMA = vol.Schema({
-    vol.Required("eedomus_id"): str,
-    vol.Required("ha_entity"): str,
-    vol.Required("type"): vol.In(["light", "switch", "sensor", "cover", "binary_sensor", "climate", "select"]),
-    vol.Required("name"): str,
-    vol.Optional("ha_subtype", default=""): str,
-    vol.Optional("icon"): cv.icon,
-    vol.Optional("room", default=""): str,
-    vol.Optional("justification", default=""): str,
-})
+DEVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("eedomus_id"): str,
+        vol.Required("ha_entity"): str,
+        vol.Required("type"): vol.In(
+            ["light", "switch", "sensor", "cover", "binary_sensor", "climate", "select"]
+        ),
+        vol.Required("name"): str,
+        vol.Optional("ha_subtype", default=""): str,
+        vol.Optional("icon"): cv.icon,
+        vol.Optional("room", default=""): str,
+        vol.Optional("justification", default=""): str,
+    }
+)
 
 # Schema for YAML files
-YAML_MAPPING_SCHEMA = vol.Schema({
-    vol.Optional("metadata"): dict,
-    vol.Optional("advanced_rules"): list,
-    vol.Optional("usage_id_mappings"): dict,
-    vol.Optional("dynamic_entity_properties"): dict,
-    vol.Optional("specific_device_dynamic_overrides"): dict,
-    vol.Optional("specific_device_mappings"): dict,
-    vol.Optional("name_patterns"): list,
-    vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
-})
+YAML_MAPPING_SCHEMA = vol.Schema(
+    {
+        vol.Optional("metadata"): dict,
+        vol.Optional("advanced_rules"): list,
+        vol.Optional("usage_id_mappings"): dict,
+        vol.Optional("dynamic_entity_properties"): dict,
+        vol.Optional("specific_device_dynamic_overrides"): dict,
+        vol.Optional("specific_device_mappings"): dict,
+        vol.Optional("name_patterns"): list,
+        vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
+    }
+)
 
 # Schema for UI options
-UI_OPTIONS_SCHEMA = vol.Schema({
-    vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
-})
-
+UI_OPTIONS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
+    }
+)

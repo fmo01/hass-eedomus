@@ -12,7 +12,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, COORDINATOR
+from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,15 +41,15 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
     binary_sensors = []
 
-    # Le mapping global (y compris les relations parents/enfants) est déjà fait 
+    # Le mapping global (y compris les relations parents/enfants) est déjà fait
     # en amont par entity.py et le Coordinator. On se contente de filtrer.
-    
+
     for periph_id, periph in coordinator.data.items():
         if periph.get("ha_entity") == "binary_sensor":
             _LOGGER.debug(
-                "Creating binary sensor entity for %s (%s)", 
-                periph.get("name"), 
-                periph_id
+                "Creating binary sensor entity for %s (%s)",
+                periph.get("name"),
+                periph_id,
             )
             binary_sensors.append(EedomusBinarySensor(coordinator, periph_id))
 
@@ -69,12 +69,14 @@ class EedomusBinarySensor(EedomusEntity, BinarySensorEntity):
         """Return true if the binary sensor is on."""
         periph_data = self._get_periph_data()
         if periph_data is None:
-            _LOGGER.warning(f"Cannot get binary sensor state: peripheral data not found for {self._periph_id}")
+            _LOGGER.warning(
+                f"Cannot get binary sensor state: peripheral data not found for {self._periph_id}"
+            )
             return None
-            
+
         value = periph_data.get("last_value")
         _LOGGER.debug("Binary sensor %s is_on: %s", self._periph_id, value)
-        
+
         if value is None or str(value).strip() == "":
             return None
 
@@ -86,7 +88,16 @@ class EedomusBinarySensor(EedomusEntity, BinarySensorEntity):
         except (ValueError, TypeError):
             # Si c'est du texte brut (ex: "on", "open", "marche")
             val_str = str(value).strip().lower()
-            return val_str in ["on", "true", "open", "ouvert", "marche", "100", "actif", "active"]
+            return val_str in [
+                "on",
+                "true",
+                "open",
+                "ouvert",
+                "marche",
+                "100",
+                "actif",
+                "active",
+            ]
 
     @property
     def device_class(self) -> BinarySensorDeviceClass | None:
@@ -102,16 +113,21 @@ class EedomusBinarySensor(EedomusEntity, BinarySensorEntity):
 
         # 2. Fallback robuste basé sur le nom de l'usage eedomus
         usage_name = periph_info.get("usage_name", "").lower()
-        
+
         if any(keyword in usage_name for keyword in ["mouvement", "motion"]):
             return BinarySensorDeviceClass.MOTION
         if any(keyword in usage_name for keyword in ["présence", "presence"]):
             return BinarySensorDeviceClass.PRESENCE
-        if any(keyword in usage_name for keyword in ["porte", "fenêtre", "contact", "window", "door"]):
+        if any(
+            keyword in usage_name
+            for keyword in ["porte", "fenêtre", "contact", "window", "door"]
+        ):
             return BinarySensorDeviceClass.DOOR
         if any(keyword in usage_name for keyword in ["fumée", "smoke"]):
             return BinarySensorDeviceClass.SMOKE
-        if any(keyword in usage_name for keyword in ["inondation", "eau", "flood", "water"]):
+        if any(
+            keyword in usage_name for keyword in ["inondation", "eau", "flood", "water"]
+        ):
             return BinarySensorDeviceClass.MOISTURE
         if "vibration" in usage_name:
             return BinarySensorDeviceClass.VIBRATION
@@ -123,7 +139,11 @@ class EedomusBinarySensor(EedomusEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
-        attrs = super().extra_state_attributes if hasattr(super(), "extra_state_attributes") else {}
+        attrs = (
+            super().extra_state_attributes
+            if hasattr(super(), "extra_state_attributes")
+            else {}
+        )
         periph_data = self._get_periph_data() or {}
 
         # Ajout de l'historique et de la liste des valeurs eedomus si disponibles

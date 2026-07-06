@@ -15,15 +15,11 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-# Import the options flow handler for the async_get_options_flow method
-from .options_flow import EedomusOptionsFlow
-
 from .const import (
     CONF_API_HOST,
     CONF_API_PROXY_DISABLE_SECURITY,
     CONF_API_SECRET,
     CONF_API_USER,
-
     CONF_ENABLE_API_EEDOMUS,
     CONF_ENABLE_API_PROXY,
     CONF_ENABLE_HISTORY,
@@ -40,18 +36,20 @@ from .const import (
     DEFAULT_API_USER,
     DEFAULT_CONF_ENABLE_API_EEDOMUS,
     DEFAULT_CONF_ENABLE_API_PROXY,
-
     DEFAULT_ENABLE_SET_VALUE_RETRY,
     DEFAULT_ENABLE_WEBHOOK,
+    DEFAULT_HTTP_REQUEST_TIMEOUT,
     DEFAULT_PHP_FALLBACK_ENABLED,
     DEFAULT_PHP_FALLBACK_SCRIPT_NAME,
     DEFAULT_PHP_FALLBACK_TIMEOUT,
-    DEFAULT_HTTP_REQUEST_TIMEOUT,
     DEFAULT_REMOVE_ENTITIES,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 from .eedomus_client import EedomusClient
+
+# Import the options flow handler for the async_get_options_flow method
+from .options_flow import EedomusOptionsFlow
 
 # ASCII art and explanations
 CONNECTION_MODES_EXPLANATION = """
@@ -102,14 +100,14 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_API_SECRET, default=DEFAULT_API_SECRET or ""): str,
         vol.Optional(CONF_ENABLE_HISTORY, default=False): bool,
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
-        vol.Optional(CONF_HTTP_REQUEST_TIMEOUT, default=DEFAULT_HTTP_REQUEST_TIMEOUT): int,
+        vol.Optional(
+            CONF_HTTP_REQUEST_TIMEOUT, default=DEFAULT_HTTP_REQUEST_TIMEOUT
+        ): int,
         vol.Optional(
             CONF_ENABLE_SET_VALUE_RETRY, default=DEFAULT_ENABLE_SET_VALUE_RETRY
         ): bool,
         vol.Optional("max_retries", default=3): int,
-        vol.Optional(
-            CONF_ENABLE_WEBHOOK, default=DEFAULT_ENABLE_WEBHOOK
-        ): bool,
+        vol.Optional(CONF_ENABLE_WEBHOOK, default=DEFAULT_ENABLE_WEBHOOK): bool,
         vol.Optional(
             CONF_API_PROXY_DISABLE_SECURITY, default=DEFAULT_API_PROXY_DISABLE_SECURITY
         ): bool,
@@ -148,7 +146,7 @@ class EedomusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         user_show = user_input.copy()
-        user_show['api_secret'] = "********"
+        user_show["api_secret"] = "********"
         _LOGGER.info("Config flow received user input: %s", user_show)
         _LOGGER.debug("Full user input details: %s", user_show)
 
@@ -206,7 +204,9 @@ class EedomusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             raise vol.Invalid("Scan interval must be at least 30 seconds")
 
         # Validate HTTP request timeout
-        http_request_timeout = data.get(CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT)
+        http_request_timeout = data.get(
+            CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT
+        )
         if http_request_timeout < 5 or http_request_timeout > 120:
             raise vol.Invalid("HTTP request timeout must be between 5 and 120 seconds")
 
@@ -330,8 +330,7 @@ class EedomusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data_schema=vol.Schema(
                     {
                         vol.Optional(
-                            CONF_REMOVE_ENTITIES,
-                            default=DEFAULT_REMOVE_ENTITIES
+                            CONF_REMOVE_ENTITIES, default=DEFAULT_REMOVE_ENTITIES
                         ): bool,
                     }
                 ),
@@ -343,11 +342,14 @@ class EedomusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # If user confirms uninstallation
         remove_entities = user_input.get(CONF_REMOVE_ENTITIES, DEFAULT_REMOVE_ENTITIES)
-        
+
         # Store the uninstallation options in the config entry
         self.hass.config_entries.async_update_entry(
             self.config_entry,
-            options={**self.config_entry.options, CONF_REMOVE_ENTITIES: remove_entities}
+            options={
+                **self.config_entry.options,
+                CONF_REMOVE_ENTITIES: remove_entities,
+            },
         )
 
         # Proceed with uninstallation

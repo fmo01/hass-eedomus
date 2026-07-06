@@ -8,7 +8,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, COORDINATOR
+from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,11 +29,16 @@ async def async_setup_entry(
                 parent_to_children[parent_id] = []
             parent_to_children[parent_id].append(periph)
             if not "ha_entity" in coordinator.data[periph_id]:
-                eedomus_mapping = map_device_to_ha_entity(periph, coordinator.data, coordinator=coordinator)
+                eedomus_mapping = map_device_to_ha_entity(
+                    periph, coordinator.data, coordinator=coordinator
+                )
                 coordinator.data[periph_id].update(eedomus_mapping)
                 # S'assurer que le mapping est enregistré dans le registre global
                 from .entity import _register_device_mapping
-                _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
+
+                _register_device_mapping(
+                    eedomus_mapping, periph["name"], periph_id, periph
+                )
     for periph_id, periph in all_peripherals.items():
         ha_entity = None
         if "ha_entity" in coordinator.data[periph_id]:
@@ -52,8 +57,13 @@ async def async_setup_entry(
             if not eedomus_mapping is None:
                 coordinator.data[periph_id].update(eedomus_mapping)
                 # Log pour confirmer que le device a été mappé
-                _LOGGER.debug("✅ Device mapped: %s (%s) → %s:%s", 
-                            periph["name"], periph_id, eedomus_mapping["ha_entity"], eedomus_mapping["ha_subtype"])
+                _LOGGER.debug(
+                    "✅ Device mapped: %s (%s) → %s:%s",
+                    periph["name"],
+                    periph_id,
+                    eedomus_mapping["ha_entity"],
+                    eedomus_mapping["ha_subtype"],
+                )
 
     for periph_id, periph in all_peripherals.items():
         ha_entity = None
@@ -186,9 +196,11 @@ class EedomusSwitch(EedomusEntity, SwitchEntity):
         """Return true if the switch is on."""
         periph_data = self._get_periph_data()
         if periph_data is None:
-            _LOGGER.warning(f"Cannot get switch state: peripheral data not found for {self._periph_id}")
+            _LOGGER.warning(
+                f"Cannot get switch state: peripheral data not found for {self._periph_id}"
+            )
             return False
-            
+
         value = periph_data.get("last_value")
         _LOGGER.debug(
             "Switch %s is_on: %s name=%s",
@@ -196,10 +208,10 @@ class EedomusSwitch(EedomusEntity, SwitchEntity):
             value,
             periph_data.get("name"),
         )
-        
+
         # Sécurité : On convertit en chaîne de caractères et on nettoie
         val_str = str(value).strip().lower() if value is not None else ""
-        
+
         # Assure la compatibilité avec TOUS les types de switchs eedomus (1, 100, on, marche)
         return val_str in ["1", "100", "on", "marche", "true"]
 

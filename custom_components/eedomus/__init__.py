@@ -1,28 +1,25 @@
 """The eedomus integration."""
 
 from __future__ import annotations
-from datetime import timedelta
 
 import asyncio
 import json
 import logging
 import os
+from datetime import timedelta
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import aiohttp_client
-import aiohttp
 
 from .api_proxy import EedomusApiProxyView
-from .webhook import EedomusWebhookView
 from .const import (
-
     CONF_API_HOST,
-    CONF_API_USER,
-    CONF_API_SECRET,
     CONF_API_PROXY_DISABLE_SECURITY,
-
+    CONF_API_SECRET,
+    CONF_API_USER,
     CONF_ENABLE_API_EEDOMUS,
     CONF_ENABLE_API_PROXY,
     CONF_ENABLE_HISTORY,
@@ -41,16 +38,16 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import EedomusDataUpdateCoordinator
-
 from .eedomus_client import EedomusClient
+
 # Note: For HA 2026.02+, we use the modern frontend API (www/config_panel.js)
 # The Lovelace card import is kept for backward compatibility but may fail in newer HA versions
 from .sensor import EedomusHistoryProgressSensor, EedomusSensor
-from .text_sensor import EedomusTextSensor
-from .webhook import EedomusWebhookView
 
 # Import service setup
 from .services import async_setup_services
+from .text_sensor import EedomusTextSensor
+from .webhook import EedomusWebhookView
 
 # Initialize logger first
 _LOGGER = logging.getLogger(__name__)
@@ -58,6 +55,7 @@ _LOGGER = logging.getLogger(__name__)
 # Import options flow to ensure it's registered
 try:
     from .options_flow import EedomusOptionsFlow
+
     _LOGGER.debug("Options flow handler loaded successfully")
 except ImportError as e:
     _LOGGER.warning("Failed to load options flow handler: %s", e)
@@ -74,6 +72,7 @@ except Exception as e:
     VERSION = "unknown"
     _LOGGER.warning("Failed to read version from manifest.json: %s", e)
 
+
 # --- AJOUT: Fonction d'extraction du nom de la box ---
 def get_clean_box_name(entry: ConfigEntry) -> str:
     """Extrait proprement l'IP pour formater le nom de la Box.
@@ -86,17 +85,20 @@ def get_clean_box_name(entry: ConfigEntry) -> str:
         except Exception:
             pass
     return f"Box eedomus ({host})" if host else "Box eedomus"
+
+
 # ---------------------------------------------------
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up eedomus from a config entry.
-    
+
     This function initializes the eedomus integration by creating the API client,
     setting up the data coordinator, registering services, and forwarding setup to platforms.
     """
     _LOGGER.info("🚀 Starting eedomus integration setup - Version %s", VERSION)
     _LOGGER.debug("Setting up eedomus integration with entry_id: %s", entry.entry_id)
-    
+
     # Perform migration if needed
     if entry.version < 4:
         try:
@@ -116,52 +118,70 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # On recrée le format d'unique_id cible utilisé par ton config_flow
             calculated_unique_id = f"eedomus_{api_host}"
             _LOGGER.info(
-                "Fixing missing unique_id for entry %s. Setting to: %s", 
-                entry.entry_id, 
-                calculated_unique_id
+                "Fixing missing unique_id for entry %s. Setting to: %s",
+                entry.entry_id,
+                calculated_unique_id,
             )
             # Cette ligne met à jour la mémoire ET écrit directement dans core.config_entries
-            hass.config_entries.async_update_entry(entry, unique_id=calculated_unique_id)
+            hass.config_entries.async_update_entry(
+                entry, unique_id=calculated_unique_id
+            )
     # =====================================================================
 
     # =====================================================================
     # 🛠️ AUTO-MIGRATION DES CLÉS À CHAUD (SANS CHANGEMENT DE VERSION)
     # =====================================================================
-    if "api_eedomus" in entry.data or "api_eedomus" in entry.options or "api_proxy" in entry.data or "api_proxy" in entry.options:
-        _LOGGER.info("Modernisation automatique des clés pour l'entrée %s", entry.entry_id)
-        
+    if (
+        "api_eedomus" in entry.data
+        or "api_eedomus" in entry.options
+        or "api_proxy" in entry.data
+        or "api_proxy" in entry.options
+    ):
+        _LOGGER.info(
+            "Modernisation automatique des clés pour l'entrée %s", entry.entry_id
+        )
+
         new_data = {**entry.data}
         new_options = {**entry.options}
-        
+
         # Bascule api_eedomus -> enable_api_eedomus
         if "api_eedomus" in new_data:
             new_data[CONF_ENABLE_API_EEDOMUS] = new_data.pop("api_eedomus")
         if "api_eedomus" in new_options:
             new_options[CONF_ENABLE_API_EEDOMUS] = new_options.pop("api_eedomus")
-            
+
         # Bascule api_proxy -> enable_api_proxy
         if "api_proxy" in new_data:
             new_data[CONF_ENABLE_API_PROXY] = new_data.pop("api_proxy")
         if "api_proxy" in new_options:
             new_options[CONF_ENABLE_API_PROXY] = new_options.pop("api_proxy")
-            
+
         # CETTE LIGNE FORCE LA SAUVEGARDE IMMÉDIATE DANS LE FICHIER JSON
-        hass.config_entries.async_update_entry(entry, data=new_data, options=new_options)
+        hass.config_entries.async_update_entry(
+            entry, data=new_data, options=new_options
+        )
 
     # =====================================================================
     # 🔄 SYNCHRONISATION DES CLÉS DE CONNEXION MODIFIÉES (OPTIONS -> DATA)
     # =====================================================================
-    if CONF_API_HOST in entry.options or CONF_API_USER in entry.options or CONF_API_SECRET in entry.options:
+    if (
+        CONF_API_HOST in entry.options
+        or CONF_API_USER in entry.options
+        or CONF_API_SECRET in entry.options
+    ):
         new_data = {**entry.data}
         changes_detected = False
-        
+
         for key in (CONF_API_HOST, CONF_API_USER, CONF_API_SECRET):
             if key in entry.options and entry.options[key] != entry.data.get(key):
                 new_data[key] = entry.options[key]
                 changes_detected = True
-                
+
         if changes_detected:
-            _LOGGER.info("🔄 Synchronisation des nouveaux identifiants modifiés vers entry.data pour %s", entry.entry_id)
+            _LOGGER.info(
+                "🔄 Synchronisation des nouveaux identifiants modifiés vers entry.data pour %s",
+                entry.entry_id,
+            )
             hass.config_entries.async_update_entry(entry, data=new_data)
     # =====================================================================
 
@@ -170,11 +190,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # First check options (updated via options flow), then data (initial config), then defaults
     api_eedomus_enabled = entry.options.get(
         CONF_ENABLE_API_EEDOMUS,
-        entry.data.get(CONF_ENABLE_API_EEDOMUS, DEFAULT_CONF_ENABLE_API_EEDOMUS)
+        entry.data.get(CONF_ENABLE_API_EEDOMUS, DEFAULT_CONF_ENABLE_API_EEDOMUS),
     )
     api_proxy_enabled = entry.options.get(
         CONF_ENABLE_API_PROXY,
-        entry.data.get(CONF_ENABLE_API_PROXY, DEFAULT_CONF_ENABLE_API_PROXY)
+        entry.data.get(CONF_ENABLE_API_PROXY, DEFAULT_CONF_ENABLE_API_PROXY),
     )
 
     _LOGGER.info(
@@ -183,11 +203,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         api_proxy_enabled,
     )
 
-    _LOGGER.debug("Setting up eedomus integration before entry.update_listener: %s", entry.update_listeners)
+    _LOGGER.debug(
+        "Setting up eedomus integration before entry.update_listener: %s",
+        entry.update_listeners,
+    )
     # Set up options flow handler
     entry.async_on_unload(entry.add_update_listener(async_update_listener))
 
-    _LOGGER.debug("Setting up eedomus integration after entry.update_listener: %s", entry.update_listeners)
+    _LOGGER.debug(
+        "Setting up eedomus integration after entry.update_listener: %s",
+        entry.update_listeners,
+    )
 
     # Create session and client
     session = aiohttp_client.async_get_clientsession(hass)
@@ -207,16 +233,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Check options first, then data, then default
         scan_interval = entry.options.get(
             CONF_SCAN_INTERVAL,
-            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         )
-        
+
         coordinator = EedomusDataUpdateCoordinator(hass, client, scan_interval)
 
         # Create main eedomus box device for proper device hierarchy
         try:
-            from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+            from homeassistant.helpers.device_registry import (
+                async_get as async_get_device_registry,
+            )
+
             device_registry = async_get_device_registry(hass)
-            
+
             # --- MODIFICATION: Utilisation de get_clean_box_name pour un nommage unifié ---
             box_name = get_clean_box_name(entry)
             box_device = device_registry.async_get_or_create(
@@ -227,7 +256,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 model="Eedomus Box",
                 sw_version="Unknown",
             )
-            _LOGGER.info("Created main eedomus box device: %s (%s)", box_device.id, box_name)
+            _LOGGER.info(
+                "Created main eedomus box device: %s (%s)", box_device.id, box_name
+            )
             # -----------------------------------------------------------------------------
         except Exception as e:
             _LOGGER.warning("Failed to create main eedomus box device: %s", e)
@@ -236,10 +267,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await coordinator.async_config_entry_first_refresh()
             _LOGGER.info("API Eedomus mode initialized successfully")
-            
+
             # Display device mapping table after first successful refresh
             try:
                 from .mapping_registry import print_mapping_table
+
                 print_mapping_table()
             except Exception as e:
                 _LOGGER.debug("Failed to display mapping table: %s", e)
@@ -256,11 +288,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("✅ Eedomus services registered successfully")
         except Exception as err:
             _LOGGER.error("Failed to setup eedomus services: %s", err)
-        
+
         # Create history progress sensors if history is enabled
         # Check both config_entry.data and options
-        history_from_config = coordinator.config_entry.data.get(CONF_ENABLE_HISTORY, False)
-        
+        history_from_config = coordinator.config_entry.data.get(
+            CONF_ENABLE_HISTORY, False
+        )
+
         # Check if history option is explicitly set in options
         if CONF_ENABLE_HISTORY in coordinator.config_entry.options:
             history_from_options = coordinator.config_entry.options[CONF_ENABLE_HISTORY]
@@ -273,31 +307,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else:
             # No options set, use config
             history_enabled = history_from_config
-        
+
         # Debug logging to understand the decision process
         _LOGGER.debug(
             "History option decision during init: config=%s, options=%s, final=%s",
             history_from_config,
             coordinator.config_entry.options.get(CONF_ENABLE_HISTORY, "not_set"),
-            history_enabled
+            history_enabled,
         )
-        
+
         if history_enabled:
             try:
                 # Get device registry for proper device attachment
-                from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+                from homeassistant.helpers.device_registry import (
+                    async_get as async_get_device_registry,
+                )
+
                 device_registry = async_get_device_registry(hass)
-                
+
                 # Create proper history sensor entities
                 from .history_sensor import async_setup_history_sensors
-                sensors = await async_setup_history_sensors(hass, coordinator, device_registry)
-                
+
+                sensors = await async_setup_history_sensors(
+                    hass, coordinator, device_registry
+                )
+
                 # Store sensors for cleanup
                 coordinator._history_sensors = sensors
-                _LOGGER.info("✅ History sensors created and attached to eedomus box device")
+                _LOGGER.info(
+                    "✅ History sensors created and attached to eedomus box device"
+                )
             except Exception as err:
                 _LOGGER.error("Failed to create history sensors: %s", err)
-
 
     # If neither mode is enabled, this shouldn't happen due to validation, but handle it anyway
     if not api_eedomus_enabled and not api_proxy_enabled:
@@ -310,14 +351,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await async_setup_services(hass, None)
             _LOGGER.info("✅ Eedomus services registered in proxy-only mode")
         except Exception as err:
-            _LOGGER.error("Failed to setup eedomus services in proxy-only mode: %s", err)
+            _LOGGER.error(
+                "Failed to setup eedomus services in proxy-only mode: %s", err
+            )
 
     # Create entities based on supported classes (only if API Eedomus mode is enabled)
     # Setup history sensors if history feature is enabled
     if api_eedomus_enabled and entry.data.get(CONF_ENABLE_HISTORY, False):
         try:
+            from homeassistant.helpers.device_registry import (
+                async_get as async_get_device_registry,
+            )
+
             from .history_sensor import async_setup_history_sensors
-            from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+
             device_registry = async_get_device_registry(hass)
             await async_setup_history_sensors(hass, coordinator, device_registry)
             _LOGGER.info("✅ History sensors registered successfully")
@@ -326,42 +373,58 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Always setup refresh timing sensors (they're lightweight and useful for monitoring)
     try:
+        from homeassistant.helpers.device_registry import (
+            async_get as async_get_device_registry,
+        )
+
         from .refresh_timing_sensor import async_setup_refresh_timing_sensors
-        from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+
         device_registry = async_get_device_registry(hass)
-        timing_sensors = await async_setup_refresh_timing_sensors(hass, coordinator, device_registry)
-        
+        timing_sensors = await async_setup_refresh_timing_sensors(
+            hass, coordinator, device_registry
+        )
+
         # Note: Timing sensors will be registered with other sensors via PLATFORMS
         # No need for separate registration to avoid double setup
         if timing_sensors:
-            _LOGGER.info("✅ Refresh timing sensors ready (will be registered with other sensors)")
+            _LOGGER.info(
+                "✅ Refresh timing sensors ready (will be registered with other sensors)"
+            )
     except Exception as err:
         _LOGGER.error("Failed to setup refresh timing sensors: %s", err)
 
     # Setup endpoint volume sensors (data volume monitoring)
     try:
         from .endpoint_volume_sensor import async_setup_endpoint_volume_sensors
-        volume_sensors = await async_setup_endpoint_volume_sensors(hass, coordinator, device_registry)
-        
+
+        volume_sensors = await async_setup_endpoint_volume_sensors(
+            hass, coordinator, device_registry
+        )
+
         # Debug: Log the number of volume sensors created
-        _LOGGER.info("📊 Created %d endpoint volume sensors", len(volume_sensors) if volume_sensors else 0)
-        
+        _LOGGER.info(
+            "📊 Created %d endpoint volume sensors",
+            len(volume_sensors) if volume_sensors else 0,
+        )
+
         # Note: Volume sensors will be registered with other sensors via PLATFORMS
         # No need for separate registration to avoid double setup
         if volume_sensors:
-            _LOGGER.info("✅ Endpoint volume sensors ready (will be registered with other sensors)")
+            _LOGGER.info(
+                "✅ Endpoint volume sensors ready (will be registered with other sensors)"
+            )
             # Store volume sensors in coordinator for access by sensor setup
             if coordinator:
                 coordinator._volume_sensors = volume_sensors
-                _LOGGER.debug("📊 Stored %d volume sensors in coordinator", len(volume_sensors))
+                _LOGGER.debug(
+                    "📊 Stored %d volume sensors in coordinator", len(volume_sensors)
+                )
     except Exception as err:
         _LOGGER.error("Failed to setup endpoint volume sensors: %s", err)
 
     # Store timing sensors in coordinator for access by sensor setup
-    if coordinator and 'timing_sensors' in locals():
+    if coordinator and "timing_sensors" in locals():
         coordinator._timing_sensors = timing_sensors
-
-
 
     # Stockage sécurisé
     if DOMAIN not in hass.data:
@@ -371,7 +434,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry_data = {}
     if coordinator:
         entry_data[COORDINATOR] = coordinator
-
 
     # Store entry data
     if coordinator:
@@ -387,7 +449,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Enregistrement du webhook et service (always register webhooks)
     disable_security = entry.options.get(
         CONF_API_PROXY_DISABLE_SECURITY,
-        entry.data.get(CONF_API_PROXY_DISABLE_SECURITY, DEFAULT_API_PROXY_DISABLE_SECURITY)
+        entry.data.get(
+            CONF_API_PROXY_DISABLE_SECURITY, DEFAULT_API_PROXY_DISABLE_SECURITY
+        ),
     )
 
     # Log security warning if disabled
@@ -402,11 +466,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "   Only use this setting temporarily for debugging in secure environments."
         )
 
-
     # Check if webhook is enabled
     webhook_enabled = entry.options.get(
-        CONF_ENABLE_WEBHOOK,
-        entry.data.get(CONF_ENABLE_WEBHOOK, DEFAULT_ENABLE_WEBHOOK)
+        CONF_ENABLE_WEBHOOK, entry.data.get(CONF_ENABLE_WEBHOOK, DEFAULT_ENABLE_WEBHOOK)
     )
 
     # Define allowed_ips for webhook
@@ -438,7 +500,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         _LOGGER.info("Api Proxy mode disabled")
 
-
     # Forward setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -449,88 +510,102 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("eedomus integration setup completed")
     return True
 
+
 # Define update listener first
 async def async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update.
-    
+
     This function is called when configuration options are updated through the options flow.
     It updates the coordinator scan interval and triggers a reload of the integration.
     """
     _LOGGER.info("🔧 Eedomus configuration options updated - reloading integration")
-    
+
     # Update coordinator scan interval if it exists and scan_interval option changed
-    if entry.entry_id in hass.data.get(DOMAIN, {}) and COORDINATOR in hass.data[DOMAIN][entry.entry_id]:
+    if (
+        entry.entry_id in hass.data.get(DOMAIN, {})
+        and COORDINATOR in hass.data[DOMAIN][entry.entry_id]
+    ):
         coordinator = hass.data[DOMAIN][entry.entry_id][COORDINATOR]
         new_scan_interval = entry.options.get(CONF_SCAN_INTERVAL)
-        if new_scan_interval and hasattr(coordinator, 'update_interval'):
+        if new_scan_interval and hasattr(coordinator, "update_interval"):
             coordinator.update_interval = timedelta(seconds=new_scan_interval)
             _LOGGER.info(f"🔄 Updated scan interval to {new_scan_interval} seconds")
-    
-    hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
 
+    hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
 
 
 async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Migrate old entry."""
     _LOGGER.debug("Migrating from version %s", config_entry.version)
-    
+
     # Migration from version 1 to 2: Add new options
     if config_entry.version == 1:
         new_data = {**config_entry.data}
         new_options = {**config_entry.options}
-        
+
         # Add new options with default values
         new_options.setdefault(CONF_ENABLE_HISTORY, DEFAULT_ENABLE_HISTORY)
         new_options.setdefault(CONF_REMOVE_ENTITIES, DEFAULT_REMOVE_ENTITIES)
-        
-        hass.config_entries.async_update_entry(config_entry, data=new_data, options=new_options, version=2)
+
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, options=new_options, version=2
+        )
         _LOGGER.info("Migration to version 2 completed")
-    
+
     # Migration from version 2 to 3: Add API proxy settings
     if config_entry.version == 2:
         new_data = {**config_entry.data}
         new_options = {**config_entry.options}
-        
+
         # Add API proxy settings
         new_options.setdefault(CONF_ENABLE_API_PROXY, DEFAULT_CONF_ENABLE_API_PROXY)
-        new_options.setdefault(CONF_API_PROXY_DISABLE_SECURITY, DEFAULT_API_PROXY_DISABLE_SECURITY)
-        
-        hass.config_entries.async_update_entry(config_entry, data=new_data, options=new_options, version=3)
+        new_options.setdefault(
+            CONF_API_PROXY_DISABLE_SECURITY, DEFAULT_API_PROXY_DISABLE_SECURITY
+        )
+
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, options=new_options, version=3
+        )
         _LOGGER.info("Migration to version 3 completed")
-    
+
     # Migration from version 3 to 4: Preserve custom_mapping.yaml
     if config_entry.version == 3:
         new_data = {**config_entry.data}
         new_options = {**config_entry.options}
-        
+
         # Preserve custom mapping file during migration
         try:
-            custom_mapping_path = os.path.join(os.path.dirname(__file__), "config", "custom_mapping.yaml")
+            custom_mapping_path = os.path.join(
+                os.path.dirname(__file__), "config", "custom_mapping.yaml"
+            )
             if os.path.exists(custom_mapping_path):
                 # Backup the custom mapping file using async executor to avoid blocking
                 backup_path = f"{custom_mapping_path}.backup_v{config_entry.version}"
-                
+
                 async def async_backup_file():
                     import shutil
+
                     await hass.async_add_executor_job(
                         shutil.copy2, custom_mapping_path, backup_path
                     )
                     _LOGGER.info("Backed up custom_mapping.yaml to %s", backup_path)
-                
+
                 await async_backup_file()
         except Exception as e:
             _LOGGER.error("Failed to backup custom_mapping.yaml: %s", e)
-        
-        hass.config_entries.async_update_entry(config_entry, data=new_data, options=new_options, version=4)
+
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, options=new_options, version=4
+        )
         _LOGGER.info("Migration to version 4 completed - custom_mapping.yaml preserved")
-    
+
     _LOGGER.info("Migration completed successfully")
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry.
-    
+
     This function cleans up the integration by unloading platforms and removing
     the entry data from the Home Assistant data store.
     """
@@ -545,7 +620,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove a config entry.
-    
+
     This function handles the removal of a config entry, optionally removing all
     associated entities from the entity registry based on user configuration.
     """
@@ -554,7 +629,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     if remove_entities:
         _LOGGER.info("Removing all entities associated with eedomus integration")
-        
+
         # Get all entities from the entity registry
         entity_registry = await hass.helpers.entity_registry.async_get(hass)
 
@@ -580,21 +655,24 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 # YAML Mapping Management Functions
 async def async_load_mapping(hass, config_dir):
     """Load and merge device mappings from YAML files.
-    
+
     This function loads default and custom device mappings from YAML files,
     merges them using a sophisticated algorithm, and validates the result.
     """
     import yaml
     from homeassistant.helpers import config_validation as cv
-    from .const import YAML_MAPPING_SCHEMA, CONF_CUSTOM_DEVICES
-    
+
+    from .const import CONF_CUSTOM_DEVICES, YAML_MAPPING_SCHEMA
+
     default_path = os.path.join(config_dir, "device_mapping.yaml")
     custom_path = os.path.join(config_dir, "custom_mapping.yaml")
 
     # Load default mapping using async executor to avoid blocking event loop
     default_mapping = {}
     try:
-        default_path = os.path.join(os.path.dirname(__file__), "config", "device_mapping.yaml")
+        default_path = os.path.join(
+            os.path.dirname(__file__), "config", "device_mapping.yaml"
+        )
         default_mapping = await hass.async_add_executor_job(
             lambda: yaml.safe_load(open(default_path, "r", encoding="utf-8")) or {}
         )
@@ -611,13 +689,17 @@ async def async_load_mapping(hass, config_dir):
     # Load custom mapping using async executor to avoid blocking event loop
     custom_mapping = {}
     try:
-        custom_path = os.path.join(os.path.dirname(__file__), "config", "custom_mapping.yaml")
+        custom_path = os.path.join(
+            os.path.dirname(__file__), "config", "custom_mapping.yaml"
+        )
         custom_mapping = await hass.async_add_executor_job(
             lambda: yaml.safe_load(open(custom_path, "r", encoding="utf-8")) or {}
         )
         _LOGGER.debug("Loaded custom mapping from %s", custom_path)
     except FileNotFoundError:
-        _LOGGER.debug("No custom mapping file found at %s - using defaults only", custom_path)
+        _LOGGER.debug(
+            "No custom mapping file found at %s - using defaults only", custom_path
+        )
     except yaml.YAMLError as e:
         _LOGGER.error("Error parsing custom mapping YAML: %s", e)
         raise
@@ -629,6 +711,7 @@ async def async_load_mapping(hass, config_dir):
     # This ensures proper handling of nested structures like lists and dictionaries
     try:
         from .device_mapping import merge_yaml_mappings
+
         merged = merge_yaml_mappings(default_mapping, custom_mapping)
         _LOGGER.debug("Mappings merged successfully using sophisticated merge")
     except Exception as e:
@@ -648,11 +731,12 @@ async def async_load_mapping(hass, config_dir):
 
 async def async_save_custom_mapping(hass, config_dir, mapping_data):
     """Save custom mapping to YAML file.
-    
+
     This function saves custom device mapping data to a YAML file for persistent
     storage across Home Assistant restarts.
     """
     import yaml
+
     custom_path = os.path.join(config_dir, "custom_mapping.yaml")
 
     try:
@@ -660,7 +744,13 @@ async def async_save_custom_mapping(hass, config_dir, mapping_data):
         os.makedirs(os.path.dirname(custom_path), exist_ok=True)
 
         with open(custom_path, "w", encoding="utf-8") as f:
-            yaml.dump(mapping_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            yaml.dump(
+                mapping_data,
+                f,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+            )
             _LOGGER.info("Custom mapping saved to %s", custom_path)
             return True
     except Exception as e:
@@ -670,12 +760,13 @@ async def async_save_custom_mapping(hass, config_dir, mapping_data):
 
 async def async_get_mapping_for_options(hass, config_dir):
     """Get current mapping data for options flow.
-    
+
     This function retrieves the current device mapping data for use in the
     configuration options flow interface.
     """
     try:
         from .const import CONF_CUSTOM_DEVICES
+
         mapping = await async_load_mapping(hass, config_dir)
         return mapping.get(CONF_CUSTOM_DEVICES, [])
     except Exception as e:
@@ -685,105 +776,122 @@ async def async_get_mapping_for_options(hass, config_dir):
 
 async def async_cleanup_unused_entities(hass):
     """Service to cleanup unused eedomus entities.
-    
+
     This service can be called manually to remove disabled and deprecated eedomus entities.
     It provides the same functionality as the options flow cleanup but can be triggered
     via automation, script, or developer tools.
     """
     _LOGGER.info("Starting cleanup of unused eedomus entities via service call")
-    
+
     try:
         # Get entity registry (async_get returns EntityRegistry directly, not a coroutine)
         from homeassistant.helpers import entity_registry as er
+
         entity_registry = er.async_get(hass)
-        
+
         # Find entities to remove: eedomus domain, disabled, deprecated, or orphaned
         entities_to_remove = []
         entities_analyzed = 0
         entities_considered = 0
-        
+
         # Get current coordinator data to check for orphaned entities
-        coordinator_data = hass.data.get(DOMAIN, {}).get("coordinator", {}).get("data", {})
-        current_peripheral_ids = set(coordinator_data.keys()) if coordinator_data else set()
-        
+        coordinator_data = (
+            hass.data.get(DOMAIN, {}).get("coordinator", {}).get("data", {})
+        )
+        current_peripheral_ids = (
+            set(coordinator_data.keys()) if coordinator_data else set()
+        )
+
         for entity_entry in entity_registry.entities.values():
             entities_analyzed += 1
-            
+
             # Check if this is an eedomus entity
             if entity_entry.platform == "eedomus":
                 entities_considered += 1
-                
+
                 # Check if entity is disabled OR has "deprecated" in unique_id OR is orphaned OR has no unique_id
                 is_disabled = entity_entry.disabled
-                has_deprecated = entity_entry.unique_id and "deprecated" in entity_entry.unique_id.lower()
-                has_no_unique_id = entity_entry.unique_id is None or entity_entry.unique_id == ""
-                
+                has_deprecated = (
+                    entity_entry.unique_id
+                    and "deprecated" in entity_entry.unique_id.lower()
+                )
+                has_no_unique_id = (
+                    entity_entry.unique_id is None or entity_entry.unique_id == ""
+                )
+
                 # Check for orphaned entities (no longer provided by integration)
                 is_orphaned = False
                 if entity_entry.unique_id:
                     # Extract peripheral_id from unique_id (format usually includes the peripheral_id)
                     # Try to find peripheral_id in the unique_id
-                    unique_id_parts = entity_entry.unique_id.split('_')
+                    unique_id_parts = entity_entry.unique_id.split("_")
                     for part in unique_id_parts:
                         if part.isdigit() and part not in current_peripheral_ids:
                             is_orphaned = True
                             break
-                    
+
                     # Also check if the entity has no device_id (completely orphaned)
                     if not entity_entry.device_id:
                         is_orphaned = True
-                
+
                 if is_disabled or has_deprecated or is_orphaned or has_no_unique_id:
                     if has_no_unique_id:
-                        reason = 'no_unique_id'
+                        reason = "no_unique_id"
                     elif is_orphaned:
-                        reason = 'orphaned'
+                        reason = "orphaned"
                     else:
-                        reason = 'deprecated' if has_deprecated else 'disabled'
-                    entities_to_remove.append({
-                        'entity_id': entity_entry.entity_id,
-                        'unique_id': entity_entry.unique_id,
-                        'disabled': is_disabled,
-                        'has_deprecated': has_deprecated,
-                        'is_orphaned': is_orphaned,
-                        'has_no_unique_id': has_no_unique_id,
-                        'reason': reason
-                    })
-        
-        _LOGGER.info(f"Cleanup analysis complete: {entities_analyzed} entities analyzed, "
-                   f"{entities_considered} eedomus entities considered, "
-                   f"{len(entities_to_remove)} entities to be removed")
-        
+                        reason = "deprecated" if has_deprecated else "disabled"
+                    entities_to_remove.append(
+                        {
+                            "entity_id": entity_entry.entity_id,
+                            "unique_id": entity_entry.unique_id,
+                            "disabled": is_disabled,
+                            "has_deprecated": has_deprecated,
+                            "is_orphaned": is_orphaned,
+                            "has_no_unique_id": has_no_unique_id,
+                            "reason": reason,
+                        }
+                    )
+
+        _LOGGER.info(
+            f"Cleanup analysis complete: {entities_analyzed} entities analyzed, "
+            f"{entities_considered} eedomus entities considered, "
+            f"{len(entities_to_remove)} entities to be removed"
+        )
+
         # Remove the entities
         removed_count = 0
         for entity_info in entities_to_remove:
             try:
                 log_details = f"reason: {entity_info['reason']}"
-                if entity_info['unique_id']:
+                if entity_info["unique_id"]:
                     log_details += f", unique_id: {entity_info['unique_id']}"
-                if entity_info.get('is_orphaned'):
+                if entity_info.get("is_orphaned"):
                     log_details += " (orphaned - no longer provided by integration)"
-                if entity_info.get('has_no_unique_id'):
+                if entity_info.get("has_no_unique_id"):
                     log_details += " (no unique_id - cannot be managed from UI)"
-                _LOGGER.info(f"Removing entity {entity_info['entity_id']} ({log_details})")
-                entity_registry.async_remove(entity_info['entity_id'])
+                _LOGGER.info(
+                    f"Removing entity {entity_info['entity_id']} ({log_details})"
+                )
+                entity_registry.async_remove(entity_info["entity_id"])
                 removed_count += 1
             except Exception as e:
-                _LOGGER.error(f"Failed to remove entity {entity_info['entity_id']}: {e}")
-        
-        _LOGGER.info(f"Cleanup completed: {removed_count} entities removed out of {len(entities_to_remove)} identified")
-        
+                _LOGGER.error(
+                    f"Failed to remove entity {entity_info['entity_id']}: {e}"
+                )
+
+        _LOGGER.info(
+            f"Cleanup completed: {removed_count} entities removed out of {len(entities_to_remove)} identified"
+        )
+
         return {
             "success": True,
             "entities_analyzed": entities_analyzed,
             "entities_considered": entities_considered,
             "entities_identified": len(entities_to_remove),
-            "entities_removed": removed_count
+            "entities_removed": removed_count,
         }
-        
+
     except Exception as e:
         _LOGGER.error(f"Cleanup service failed: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}

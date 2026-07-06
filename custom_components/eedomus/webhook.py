@@ -77,13 +77,15 @@ class EedomusWebhookView(HomeAssistantView):
                     if entry.entry_id == self.entry_id:
                         config_entry = entry
                         break
-                
+
                 if config_entry:
                     # Reload the config entry
                     await hass.config_entries.async_reload(config_entry.entry_id)
                     _LOGGER.info("Eedomus integration reloaded successfully")
                 else:
-                    _LOGGER.error("Config entry not found for entry_id: %s", self.entry_id)
+                    _LOGGER.error(
+                        "Config entry not found for entry_id: %s", self.entry_id
+                    )
                     return web.Response(text="Config entry not found", status=500)
             return web.Response(text="OK")
 
