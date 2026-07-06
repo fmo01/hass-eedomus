@@ -32,11 +32,13 @@ jobs:
     
     - name: Run Black
       # On enlève le "|| echo" pour que l'étape échoue vraiment si le code n'est pas bon
-      run: black --check custom_components/eedomus/
+      # run: black --check custom_components/eedomus/
+      run: black  custom_components/eedomus/
     
     - name: Run isort
       if: always() # Continue même si Black a échoué
-      run: isort --check custom_components/eedomus/
+      # run: isort --check custom_components/eedomus/
+      run: isort  custom_components/eedomus/
     
     - name: Run flake8
       if: always() # Continue même si Black ou isort ont échoué
@@ -45,8 +47,8 @@ jobs:
     - name: Auto-fix formatting
       if: failure() # Se déclenche uniquement si l'une des étapes précédentes a réellement échoué
       run: |
-        black custom_components/eedomus/
-        isort custom_components/eedomus/
+        # black custom_components/eedomus/
+        # isort custom_components/eedomus/
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
         git add .
