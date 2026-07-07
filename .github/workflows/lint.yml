@@ -42,7 +42,8 @@ jobs:
     
     - name: Run flake8
       if: always() # Continue même si Black ou isort ont échoué
-      run: flake8 custom_components/eedomus/ --max-line-length=120 --extend-ignore=E203,F401,F821,E501,E713,E714,E721,F541,F841,E402,E266,F601
+      # run: flake8 custom_components/eedomus/ --max-line-length=120 --extend-ignore=E203,F401,F821,E501,E713,E714,E721,F541,F841,E402,E266,F601
+      run: flake8 custom_components/eedomus/ --max-line-length=120
     
     - name: Auto-fix formatting
       if: failure() # Se déclenche uniquement si l'une des étapes précédentes a réellement échoué
