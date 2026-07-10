@@ -4,16 +4,7 @@ import logging
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from .const import (
-    CONF_API_HOST,
-    CONF_API_PROXY_DISABLE_SECURITY,
-    COORDINATOR,
-    DOMAIN,
-    PLATFORMS,
-)
-
 _LOGGER = logging.getLogger(__name__)
-
 
 class EedomusApiProxyView(HomeAssistantView):
     requires_auth = False

@@ -10,9 +10,10 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+#from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+# from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
@@ -335,8 +336,11 @@ class EedomusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                 ),
                 description_placeholders={
-                    "explanation": "⚠️ WARNING: This will remove the eedomus integration and optionally delete all associated entities. "
-                    "This action cannot be undone. Make sure you have a backup of your configuration."
+                    "explanation": (
+                        "⚠️ WARNING: This will remove the eedomus integration and optionally "
+                        "delete all associated entities.\n\nThis action cannot be undone. "
+                        "Make sure you have a backup of your configuration."
+                    ),
                 },
             )
 

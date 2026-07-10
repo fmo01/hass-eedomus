@@ -395,7 +395,8 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
             except (ValueError, TypeError):
                 pass
 
-        # Si pas trouvé dans target_temperature ou échec, utilisation de votre validation textuelle stricte sur last_value
+        # Si pas trouvé dans target_temperature ou échec, 
+        #utilisation de votre validation textuelle stricte sur last_value
         if target_temp is None and "last_value" in periph_data:
             lv_str = str(periph_data["last_value"]).strip()
             if lv_str.replace(".", "", 1).lstrip("-").isdigit():
