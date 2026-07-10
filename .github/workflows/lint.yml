@@ -17,10 +17,12 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref || github.ref_name }}
       
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
         cache: 'pip'
@@ -28,30 +30,29 @@ jobs:
     - name: Install linting tools
       run: |
         python -m pip install --upgrade pip
-        pip install black==23.12.1 flake8==6.1.0 isort==5.13.2
+        pip install black==23.12.1 flake8==6.1.0 isort==5.13.2 vulture
     
     - name: Run Black
-      # On enlève le "|| echo" pour que l'étape échoue vraiment si le code n'est pas bon
-      # run: black --check custom_components/eedomus/
-      run: black  custom_components/eedomus/
+      run: black custom_components/eedomus/
     
     - name: Run isort
-      if: always() # Continue même si Black a échoué
-      # run: isort --check custom_components/eedomus/
-      run: isort  custom_components/eedomus/
+      run: isort custom_components/eedomus/
     
     - name: Run flake8
-      if: always() # Continue même si Black ou isort ont échoué
-      # run: flake8 custom_components/eedomus/ --max-line-length=120 --extend-ignore=E203,F401,F821,E501,E713,E714,E721,F541,F841,E402,E266,F601
       run: flake8 custom_components/eedomus/ --max-line-length=120
+      
+    - name: Run Vulture (Détection de code mort)
+      run: vulture custom_components/eedomus/ --min-confidence 80
     
-    - name: Auto-fix formatting
-      if: failure() # Se déclenche uniquement si l'une des étapes précédentes a réellement échoué
+    - name: Auto-commit formatted code
+      if: success() # S'exécute uniquement si toutes les étapes précédentes (Black, isort, flake8, vulture) ont réussi
       run: |
-        # black custom_components/eedomus/
-        # isort custom_components/eedomus/
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
-        git add .
-        git commit -m "Auto-fix: Format code with black and isort"
-        git push
+        if [[ -n "$(git status --porcelain)" ]]; then
+          git add .
+          git commit -m "Auto-fix: Format code with black and isort [skip ci]"
+          git push
+        else
+          echo "No changes to commit"
+        fi

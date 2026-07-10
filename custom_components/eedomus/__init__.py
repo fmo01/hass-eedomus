@@ -9,9 +9,10 @@ import os
 from datetime import timedelta
 
 import aiohttp
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.helpers import aiohttp_client
 
 from .api_proxy import EedomusApiProxyView
@@ -40,27 +41,12 @@ from .const import (
 from .coordinator import EedomusDataUpdateCoordinator
 from .eedomus_client import EedomusClient
 
-# Note: For HA 2026.02+, we use the modern frontend API (www/config_panel.js)
-# The Lovelace card import is kept for backward compatibility but may fail in newer HA versions
-from .sensor import EedomusHistoryProgressSensor, EedomusSensor
-
 # Import service setup
 from .services import async_setup_services
-from .text_sensor import EedomusTextSensor
 from .webhook import EedomusWebhookView
 
 # Initialize logger first
 _LOGGER = logging.getLogger(__name__)
-
-# Import options flow to ensure it's registered
-try:
-    from .options_flow import EedomusOptionsFlow
-
-    _LOGGER.debug("Options flow handler loaded successfully")
-except ImportError as e:
-    _LOGGER.warning("Failed to load options flow handler: %s", e)
-except Exception as e:
-    _LOGGER.warning("Unexpected error loading options flow handler: %s", e)
 
 # Get version from manifest.json
 try:
@@ -662,9 +648,8 @@ async def async_load_mapping(hass, config_dir):
     merges them using a sophisticated algorithm, and validates the result.
     """
     import yaml
-    from homeassistant.helpers import config_validation as cv
 
-    from .const import CONF_CUSTOM_DEVICES, YAML_MAPPING_SCHEMA
+    from .const import YAML_MAPPING_SCHEMA
 
     default_path = os.path.join(config_dir, "device_mapping.yaml")
     custom_path = os.path.join(config_dir, "custom_mapping.yaml")
