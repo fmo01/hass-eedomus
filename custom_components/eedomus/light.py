@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.light import (
+    ATTR_RGB_COLOR,  # MODIFICATION : Ajout du support de l'attribut RGB pour le mode autonome et Hue
+)
+from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_MODE,
     ATTR_COLOR_TEMP_KELVIN,
-    ATTR_RGB_COLOR,  # MODIFICATION : Ajout du support de l'attribut RGB pour le mode autonome et Hue
     ATTR_RGBW_COLOR,
     ColorMode,
     LightEntity,
@@ -121,13 +123,19 @@ async def async_setup_entry(
                 elif len(children) == 1:
                     # MODIFICATION HUE : Un seul enfant qui porte la couleur sous forme de chaîne (ex: Hue "0,25,100")
                     _LOGGER.debug(
-                        "Create a single child RGB light entity for Hue/Zipato: %s (%s)", periph["name"], periph_id
+                        "Create a single child RGB light entity for Hue/Zipato: %s (%s)",
+                        periph["name"],
+                        periph_id,
                     )
-                    entities.append(EedomusRGBChildLight(coordinator, periph_id, children[0]))
+                    entities.append(
+                        EedomusRGBChildLight(coordinator, periph_id, children[0])
+                    )
                 else:
                     # MODIFICATION STANDALONE : Pas d'enfant (ex: ESP32/WLED) ou fallback si < 4 enfants
                     _LOGGER.debug(
-                        "Create a standalone RGB/RGBW light entity (no children or fallback): %s (%s)", periph["name"], periph_id
+                        "Create a standalone RGB/RGBW light entity (no children or fallback): %s (%s)",
+                        periph["name"],
+                        periph_id,
                     )
                     entities.append(EedomusLight(coordinator, periph_id))
             else:
@@ -310,7 +318,9 @@ class EedomusLight(EedomusEntity, LightEntity):
             kwargs,
         )
         brightness = kwargs.get(ATTR_BRIGHTNESS)
-        rgb_color = kwargs.get(ATTR_RGB_COLOR)  # MODIFICATION : Capture du changement de couleur RGB (WLED/ESP32)
+        rgb_color = kwargs.get(
+            ATTR_RGB_COLOR
+        )  # MODIFICATION : Capture du changement de couleur RGB (WLED/ESP32)
         rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
         color_temp_kelvin = kwargs.get(ATTR_COLOR_TEMP_KELVIN)
 
@@ -337,7 +347,9 @@ class EedomusLight(EedomusEntity, LightEntity):
                 self._attr_name,
                 self._periph_id,
                 value,
-                self.octal_to_percent(brightness) if brightness is not None else "default",
+                self.octal_to_percent(brightness)
+                if brightness is not None
+                else "default",
             )
 
         except Exception as e:
@@ -385,7 +397,7 @@ class EedomusRGBChildLight(EedomusLight):
         """Initialiser la lumière Hue."""
         super().__init__(coordinator, periph_id)
         self._color_child_id = color_child["periph_id"]
-        
+
         periph_subtype = self.coordinator.data[periph_id].get("ha_subtype", "rgb")
         if periph_subtype == "rgbw":
             self._attr_supported_color_modes = {ColorMode.RGBW}
@@ -409,7 +421,9 @@ class EedomusRGBChildLight(EedomusLight):
         """Calculer la couleur RGB depuis la chaîne de l'enfant (ex: "0,25,100" en %)."""
         if ColorMode.RGB not in self._attr_supported_color_modes:
             return None
-        value = self.coordinator.data.get(self._color_child_id, {}).get("last_value", "")
+        value = self.coordinator.data.get(self._color_child_id, {}).get(
+            "last_value", ""
+        )
         if isinstance(value, str) and "," in value:
             try:
                 parts = [int(x.strip()) for x in value.split(",")]
@@ -429,7 +443,9 @@ class EedomusRGBChildLight(EedomusLight):
         """Calculer la couleur RGBW depuis la chaîne de l'enfant si applicable."""
         if ColorMode.RGBW not in self._attr_supported_color_modes:
             return None
-        value = self.coordinator.data.get(self._color_child_id, {}).get("last_value", "")
+        value = self.coordinator.data.get(self._color_child_id, {}).get(
+            "last_value", ""
+        )
         if isinstance(value, str) and "," in value:
             try:
                 parts = [int(x.strip()) for x in value.split(",")]
@@ -441,7 +457,12 @@ class EedomusRGBChildLight(EedomusLight):
                         self.percent_to_octal(parts[3]),
                     )
                 elif len(parts) == 3:
-                    return (self.percent_to_octal(parts[0]), self.percent_to_octal(parts[1]), self.percent_to_octal(parts[2]), 0)
+                    return (
+                        self.percent_to_octal(parts[0]),
+                        self.percent_to_octal(parts[1]),
+                        self.percent_to_octal(parts[2]),
+                        0,
+                    )
             except ValueError:
                 pass
         return (255, 255, 255, 255)
@@ -456,11 +477,17 @@ class EedomusRGBChildLight(EedomusLight):
         )
 
         # 1. Si la couleur change, actionner le périphérique ENFANT avec les pourcentages eedomus
-        if ATTR_RGB_COLOR in kwargs and ColorMode.RGB in self._attr_supported_color_modes:
+        if (
+            ATTR_RGB_COLOR in kwargs
+            and ColorMode.RGB in self._attr_supported_color_modes
+        ):
             r, g, b = kwargs[ATTR_RGB_COLOR]
             val_str = f"{self.octal_to_percent(r)},{self.octal_to_percent(g)},{self.octal_to_percent(b)}"
             await self.coordinator.async_set_periph_value(self._color_child_id, val_str)
-        elif ATTR_RGBW_COLOR in kwargs and ColorMode.RGBW in self._attr_supported_color_modes:
+        elif (
+            ATTR_RGBW_COLOR in kwargs
+            and ColorMode.RGBW in self._attr_supported_color_modes
+        ):
             r, g, b, w = kwargs[ATTR_RGBW_COLOR]
             val_str = f"{self.octal_to_percent(r)},{self.octal_to_percent(g)},{self.octal_to_percent(b)},{self.octal_to_percent(w)}"
             await self.coordinator.async_set_periph_value(self._color_child_id, val_str)
@@ -475,7 +502,7 @@ class EedomusRGBChildLight(EedomusLight):
                 await self.async_set_value("100")
             else:
                 await self.async_set_value(str(current_val))
-                
+
         self.async_write_ha_state()
 
 
