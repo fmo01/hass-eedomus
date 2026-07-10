@@ -11,6 +11,7 @@ from datetime import timedelta
 import aiohttp
 import voluptuous as vol
 
+from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.helpers import aiohttp_client
