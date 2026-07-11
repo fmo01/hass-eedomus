@@ -42,6 +42,7 @@ jobs:
       run: flake8 custom_components/eedomus/ --max-line-length=120
       
     - name: Run Vulture (Détection de code mort)
+      if: always()
       run: vulture custom_components/eedomus/ --min-confidence 80
     
     - name: Auto-commit formatted code

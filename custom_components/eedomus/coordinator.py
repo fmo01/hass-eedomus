@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
 
-from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers import service
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -15,16 +13,12 @@ from .const import (
     CONF_ENABLE_SET_VALUE_RETRY,
     CONF_HISTORY_RETRY_DELAY,
     CONF_PHP_FALLBACK_ENABLED,
-    CONF_PHP_FALLBACK_SCRIPT_NAME,
-    CONF_PHP_FALLBACK_TIMEOUT,
     DEFAULT_ENABLE_SET_VALUE_RETRY,
     DEFAULT_PHP_FALLBACK_ENABLED,
-    DEFAULT_PHP_FALLBACK_SCRIPT_NAME,
-    DEFAULT_PHP_FALLBACK_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
-from .entity import EedomusEntity, map_device_to_ha_entity
+from .entity import map_device_to_ha_entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,7 +51,6 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         self._scan_interval = scan_interval
 
         # Timing metrics for performance monitoring
-        self._last_api_time = 0.0
         self._last_processing_time = 0.0
         self._last_refresh_time = 0.0
         self._last_processed_devices = 0
@@ -126,7 +119,8 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         # Phase 1: Construction complète des données SANS mapping
-        # Cela résout le problème de temporalité où les enfants peuvent ne pas être encore dans aggregated_data
+        # Cela résout le problème de temporalité où les enfants 
+        # peuvent ne pas être encore dans aggregated_data
         for periph_id in all_periph_ids:
             aggregated_data[periph_id] = {}
 
@@ -529,25 +523,6 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                     return self.data
                 raise UpdateFailed(f"Error updating data: {err}") from err
 
-    async def _async_partial_data_retreive(self, concat_text_periph_id: str):
-        peripherals_caract_response = await self.client.get_periph_caract(
-            concat_text_periph_id, False
-        )
-        if not isinstance(peripherals_caract_response, dict):
-            _LOGGER.error(
-                "Invalid API response format: %s", peripherals_caract_response
-            )
-            raise UpdateFailed("Invalid API response format")
-        if peripherals_caract_response.get("success", 0) != 1:
-            error = peripherals_caract_response.get("error", "Unknown API error")
-            _LOGGER.error("API request failed: %s", error)
-            _LOGGER.debug("API peripherals_response %s", peripherals_caract_response)
-            raise UpdateFailed(f"API request failed: {error}")
-        if not isinstance(peripherals_caract, list):
-            _LOGGER.error("Invalid peripherals list: %s", peripherals_caract)
-            peripherals_caract = []
-        return peripherals_caract
-
     async def _load_yaml_config_async(self):
         """Load YAML configuration asynchronously using device_mapping async functions."""
         if self._yaml_config_cache is not None:
@@ -631,7 +606,10 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         self._endpoint_call_counts["get_periph_caract"] += 1
 
         _LOGGER.debug(
-            "📊 Endpoint metrics - get_periph_list: %.3fs (%.1f KB), get_periph_value_list: %.3fs (%.1f KB), get_periph_caract: %.3fs (%.1f KB)",
+            "📊 Endpoint metrics - "
+            "get_periph_list: %.3fs (%.1f KB), "
+            "get_periph_value_list: %.3fs (%.1f KB), "
+            "get_periph_caract: %.3fs (%.1f KB)",
             self._endpoint_timings["get_periph_list"],
             self._endpoint_data_sizes["get_periph_list"] / 1024,
             self._endpoint_timings["get_periph_value_list"],
