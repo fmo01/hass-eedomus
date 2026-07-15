@@ -108,7 +108,8 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                 err,
             )
             raise ConfigEntryNotReady(
-                f"Impossible de joindre la box eedomus à l'adresse {self.client.host if hasattr(self.client, 'host') else 'configurée'} : {err}"
+                f"Impossible de joindre la box eedomus à l'adresse "
+                 "{self.client.host if hasattr(self.client, 'host') else 'configurée'} : {err}"
             ) from None
 
         # Conversion des listes en dictionnaires
