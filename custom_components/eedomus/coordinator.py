@@ -550,7 +550,7 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                     "Error updating eedomus after %.3f seconds data: %s", elapsed, err
                 )
                 # Return last known good data if available
-                #if hasattr(self, "data") and self.data:
+                # if hasattr(self, "data") and self.data:
                 #    return self.data
                 raise UpdateFailed(f"Error updating data: {err}") from err
 
