@@ -7,11 +7,10 @@ from datetime import datetime
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import COORDINATOR, DOMAIN, SENSOR_DEVICE_CLASSES
+from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
 from .text_sensor import EedomusTextSensor
 
@@ -87,7 +86,7 @@ async def async_setup_entry(
                     "ha_subtype": "energy",
                     "justification": "Energy consumption meter (usage_id=26)",
                 }
-            if not eedomus_mapping is None:
+            if eedomus_mapping is not None:
                 coordinator.data[periph_id].update(eedomus_mapping)
                 _LOGGER.debug(
                     "Created energy sensor for %s (%s) - consumption monitoring",

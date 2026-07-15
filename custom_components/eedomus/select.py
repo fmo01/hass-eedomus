@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
+from .mapping_registry import register_device_mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,9 +32,7 @@ async def async_setup_entry(
             )
             coordinator.data[periph_id].update(eedomus_mapping)
             # S'assurer que le mapping est enregistré dans le registre global
-            from .entity import _register_device_mapping
-
-            _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
+            register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
 
     # Second pass: create select entities
     for periph_id, periph in all_peripherals.items():

@@ -3,53 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def evaluate_advanced_rules(
-    device_data: dict, all_devices: dict, advanced_rules_dict: dict
-) -> dict | None:
-    """Évalue les règles avancées pour un device."""
-    periph_id = device_data["periph_id"]
-    periph_name = device_data["name"]
-
-    for rule_name, rule_config in advanced_rules_dict.items():
-        _LOGGER.debug(
-            "🔍 Evaluating rule '%s' for device %s (%s)",
-            rule_name,
-            periph_name,
-            periph_id,
-        )
-
-        # Évaluer les conditions
-        if "condition" in rule_config:
-            condition_result = rule_config["condition"](device_data, all_devices)
-        elif "conditions" in rule_config:
-            condition_result = evaluate_conditions(
-                rule_config["conditions"],
-                device_data,
-                all_devices,
-                periph_id,
-                rule_name,
-            )
-        else:
-            _LOGGER.warning("No condition or conditions found in rule: %s", rule_name)
-            condition_result = False
-
-        _LOGGER.debug(
-            "Advanced rule '%s' for %s (%s): condition_result=%s",
-            rule_name,
-            periph_name,
-            periph_id,
-            condition_result,
-        )
-
-        if condition_result:
-            return rule_config["mapping"]
-
-    return None
 
 
 def evaluate_conditions(
@@ -105,19 +60,6 @@ def evaluate_conditions(
                         cond_value,
                         periph_id,
                     )
-                    # Special debug for device 1269454
-                    if periph_id == "1269454":
-                        _LOGGER.error(
-                            "❌ CRITICAL: Device 1269454 RGBW mapping failed - only %d children found (need %s)",
-                            children_count,
-                            cond_value,
-                        )
-                        _LOGGER.error(
-                            "❌ This device should have at least 4 children for RGBW mapping"
-                        )
-                        _LOGGER.error(
-                            "❌ Check if all children are properly loaded in eedomus API"
-                        )
                     break
 
             elif cond_key == "child_usage_id":
@@ -201,20 +143,6 @@ def evaluate_conditions(
                     if child.get("parent_periph_id") == periph_id
                 ]
                 child_names = [child.get("name", "").lower() for child in children]
-
-                # Special debug for device 1269454
-                if periph_id == "1269454":
-                    for required_name in required_names:
-                        found = any(
-                            required_name.lower() in child_name
-                            for child_name in child_names
-                        )
-                        if found:
-                            matching_children = [
-                                name
-                                for name in child_names
-                                if required_name.lower() in name
-                            ]
 
                 # Check if all required names are present in children
                 all_found = all(

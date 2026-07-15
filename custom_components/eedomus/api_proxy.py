@@ -6,8 +6,8 @@ from homeassistant.components.http import HomeAssistantView
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class EedomusApiProxyView(HomeAssistantView):
-    requires_auth = False
     url = "/api/eedomus/apiproxy/{path:.+}"
     name = "api:eedomus:apiproxy"
 

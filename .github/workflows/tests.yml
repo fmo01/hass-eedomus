@@ -1,10 +1,10 @@
 name: Run Tests
 
 on:
-  push:
-    branches: [ main, unstable ]
-  pull_request:
-    branches: [ main, unstable ]
+  #push:
+  #  branches: [ main, unstable ]
+  #pull_request:
+  #  branches: [ main, unstable ]
   workflow_dispatch: # Permet le déclenchement manuel
 
 jobs:

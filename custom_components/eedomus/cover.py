@@ -9,7 +9,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import COORDINATOR, DOMAIN
-from .entity import EedomusEntity
+from .entity import EedomusEntity, map_device_to_ha_entity
+from .mapping_registry import register_device_mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,15 +32,13 @@ async def async_setup_entry(
             if parent_id not in parent_to_children:
                 parent_to_children[parent_id] = []
             parent_to_children[parent_id].append(periph)
-        if not "ha_entity" in coordinator.data[periph_id]:
+        if "ha_entity" not in coordinator.data[periph_id]:
             eedomus_mapping = map_device_to_ha_entity(
                 periph, coordinator.data, coordinator=coordinator
             )
             coordinator.data[periph_id].update(eedomus_mapping)
             # S'assurer que le mapping est enregistré dans le registre global
-            from .entity import _register_device_mapping
-
-            _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
+            register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
 
     for periph_id, periph in all_peripherals.items():
         ha_entity = None
@@ -74,7 +73,7 @@ async def async_setup_entry(
                     "ha_subtype": "shutter",
                     "justification": "Parent is a cover - slats",
                 }
-            if not eedomus_mapping is None:
+            if eedomus_mapping is not None:
                 coordinator.data[periph_id].update(eedomus_mapping)
                 _LOGGER.debug(
                     "Created energy sensor for cover %s (%s) - consumption monitoring",

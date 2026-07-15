@@ -10,9 +10,11 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-#from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+
+# from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
+
 # from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -37,6 +39,7 @@ from .const import (
     DEFAULT_API_USER,
     DEFAULT_CONF_ENABLE_API_EEDOMUS,
     DEFAULT_CONF_ENABLE_API_PROXY,
+    DEFAULT_CONF_ENABLE_HISTORY,
     DEFAULT_ENABLE_SET_VALUE_RETRY,
     DEFAULT_ENABLE_WEBHOOK,
     DEFAULT_HTTP_REQUEST_TIMEOUT,
@@ -86,7 +89,6 @@ _LOGGER = logging.getLogger(__name__)
 
 # Configuration constants
 CONF_SCAN_INTERVAL = "scan_interval"
-CONF_ADVANCED_OPTIONS = "advanced_options"
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -99,7 +101,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         ): bool,
         vol.Optional(CONF_API_USER, default=DEFAULT_API_USER or ""): str,
         vol.Optional(CONF_API_SECRET, default=DEFAULT_API_SECRET or ""): str,
-        vol.Optional(CONF_ENABLE_HISTORY, default=False): bool,
+        vol.Optional(CONF_ENABLE_HISTORY, default=DEFAULT_CONF_ENABLE_HISTORY): bool,
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
         vol.Optional(
             CONF_HTTP_REQUEST_TIMEOUT, default=DEFAULT_HTTP_REQUEST_TIMEOUT

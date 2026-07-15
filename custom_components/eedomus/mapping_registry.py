@@ -34,11 +34,13 @@ def register_device_mapping(
     )
 
 
+# pas utilisé
 def clear_mapping_registry() -> None:
     """Réinitialise le registre de mapping."""
     _MAPPING_REGISTRY.clear()
 
 
+# pas utilisé
 def get_mapping_registry() -> list:
     """Retourne le registre de mapping."""
     return _MAPPING_REGISTRY.copy()
@@ -81,6 +83,7 @@ def print_mapping_table() -> None:
     _LOGGER.info("\n")
 
 
+# Pas utilisé
 def print_mapping_summary() -> None:
     """Affiche un résumé condensé des mappings."""
     if not _MAPPING_REGISTRY:

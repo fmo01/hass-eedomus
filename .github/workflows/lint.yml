@@ -43,7 +43,7 @@ jobs:
       
     - name: Run Vulture (Détection de code mort)
       if: always()
-      run: vulture custom_components/eedomus/ --min-confidence 80
+      run: vulture custom_components/eedomus/  scripts/param/vulture_whitelist.py --ignore-names "_attr_*"
     
     - name: Auto-commit formatted code
       if: success() # S'exécute uniquement si toutes les étapes précédentes (Black, isort, flake8, vulture) ont réussi

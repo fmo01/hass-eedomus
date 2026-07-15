@@ -4,20 +4,13 @@ import logging
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from .const import (
-    CONF_API_HOST,
-    CONF_API_PROXY_DISABLE_SECURITY,
-    COORDINATOR,
-    DOMAIN,
-    PLATFORMS,
-)
+from .const import COORDINATOR, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
-## webhook
+# webhook
 class EedomusWebhookView(HomeAssistantView):
-    requires_auth = False
     url = "/api/eedomus/webhook"
     name = "api:eedomus:webhook"
 

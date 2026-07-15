@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import config_entry_flow
 
 from .const import DOMAIN
 
@@ -203,8 +200,6 @@ async def async_setup_services(hass: HomeAssistant, coordinator) -> None:
             # Call the cleanup function with explicit entity registry access
             # Use direct import to avoid hass.helpers issue
             from homeassistant.helpers import entity_registry as er
-
-            from . import async_cleanup_unused_entities
 
             # Get entity registry directly using the correct method
             # async_get returns EntityRegistry directly, not a coroutine
@@ -437,7 +432,9 @@ async def async_setup_services(hass: HomeAssistant, coordinator) -> None:
             "eedomus", "cleanup_unused_devices", handle_cleanup_unused_devices
         )
         _LOGGER.info(
-            "🛠️  Eedomus services registered: refresh, set_value, reload, set_climate_temperature, cleanup_unused_entities, cleanup_unused_devices"
+            "🛠️ Eedomus services registered: refresh, set_value, reload, "
+            "set_climate_temperature, cleanup_unused_entities, "
+            "cleanup_unused_devices"
         )
     except Exception as err:
         _LOGGER.error("❌ Failed to register eedomus services: %s", err)

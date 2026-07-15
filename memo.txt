@@ -1,0 +1,24 @@
+E203 whitespace before :
+F401 module imported but unused
+F821 undefined name name
+E501 line too long (82 > 79 characters)
+E713 test for membership should be not in 
+E714 test for object identity should be is not
+E721 do not compare types, use isinstance()
+F541 
+F841 local variable name is assigned to but never used
+E402 module level import not at top of file
+E266 too many leading # for block comment
+F601 dictionary key name repeated with different values
+
+
+
+        self._attr_device_class = "battery"
+        self._attr_native_unit_of_measurement = "%"
+        self._attr_state_class = "measurement"
+
+
+
+ pip install pytest pytest-aiohttp pytest-homeassistant-custom-component
+ pip install async_timeout
+ 

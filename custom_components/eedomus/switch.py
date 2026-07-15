@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
+from .mapping_registry import register_device_mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,15 +29,13 @@ async def async_setup_entry(
             if parent_id not in parent_to_children:
                 parent_to_children[parent_id] = []
             parent_to_children[parent_id].append(periph)
-            if not "ha_entity" in coordinator.data[periph_id]:
+            if "ha_entity" not in coordinator.data[periph_id]:
                 eedomus_mapping = map_device_to_ha_entity(
                     periph, coordinator.data, coordinator=coordinator
                 )
                 coordinator.data[periph_id].update(eedomus_mapping)
                 # S'assurer que le mapping est enregistré dans le registre global
-                from .entity import _register_device_mapping
-
-                _register_device_mapping(
+                register_device_mapping(
                     eedomus_mapping, periph["name"], periph_id, periph
                 )
     for periph_id, periph in all_peripherals.items():
@@ -54,7 +53,7 @@ async def async_setup_entry(
                     "ha_subtype": None,
                     "justification": "Parent is a switch - sensor - Consometre",
                 }
-            if not eedomus_mapping is None:
+            if eedomus_mapping is not None:
                 coordinator.data[periph_id].update(eedomus_mapping)
                 # Log pour confirmer que le device a été mappé
                 _LOGGER.debug(
@@ -221,6 +220,11 @@ class EedomusSwitch(EedomusEntity, SwitchEntity):
         try:
             # Use entity method to turn on switch (includes fallback, retry, and state update)
             response = await self.async_set_value("100")
+            _LOGGER.debug(
+                "Switch %s turned on successfully. API Response: %s",
+                self._periph_id,
+                response,
+            )
         except Exception as e:
             _LOGGER.error("Failed to turn on switch %s: %s", self._periph_id, e)
             raise
@@ -231,7 +235,11 @@ class EedomusSwitch(EedomusEntity, SwitchEntity):
         try:
             # Use entity method to turn off switch (includes fallback, retry, and state update)
             response = await self.async_set_value("0")
-
+            _LOGGER.debug(
+                "Switch %s turned off successfully. API Response: %s",
+                self._periph_id,
+                response,
+            )
         except Exception as e:
             _LOGGER.error("Failed to turn off switch %s: %s", self._periph_id, e)
             raise

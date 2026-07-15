@@ -14,8 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -36,34 +35,6 @@ def get_clean_box_name_from_coord(coordinator) -> tuple[str, str]:
         except Exception:
             pass
     return host, f"Box eedomus ({host})"
-
-
-# --------------------------------------------------------
-
-
-async def async_get_eedomus_box_device(hass: HomeAssistant, coordinator) -> DeviceInfo:
-    """Get or create the eedomus box device info."""
-    host, box_name = get_clean_box_name_from_coord(coordinator)
-    device_registry = async_get_device_registry(hass)
-
-    # --- MODIFICATION: Utilisation de entry.entry_id pour l'identifiant et du nom unifié ---
-    device_registry.async_get_or_create(
-        config_entry_id=coordinator.config_entry.entry_id,
-        identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
-        name=box_name,
-        manufacturer="Eedomus",
-        model="Eedomus Box",
-        sw_version="Unknown",
-    )
-
-    return DeviceInfo(
-        identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
-        name=box_name,
-        manufacturer="Eedomus",
-        model="Eedomus Box",
-        sw_version="Unknown",
-    )
-    # -------------------------------------------------------------------------------------
 
 
 class EedomusRefreshTimingSensor(CoordinatorEntity, SensorEntity):
@@ -313,7 +284,7 @@ async def async_setup_refresh_timing_sensors(
 
     # Get or create the main eedomus box device
     # --- MODIFICATION: Utilisation de l'entry_id pour l'identifiant d'appareil et du nom unifié ---
-    box_device = device_registry.async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=coordinator.config_entry.entry_id,
         identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
         name=box_name,

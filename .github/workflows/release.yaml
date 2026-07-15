@@ -1,0 +1,23 @@
+name: Création de Release
+
+# Cette action se déclenche UNIQUEMENT quand tu pousses un tag de version (ex: v1.2.0)
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    name: Publier la Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 📥 Récupération du code
+        uses: actions/checkout@v4
+
+      - name: 🚀 Création de la Release GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          # Génère automatiquement le changelog basé sur tes commits !
+          generate_release_notes: true

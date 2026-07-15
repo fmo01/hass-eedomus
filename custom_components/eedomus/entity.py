@@ -6,19 +6,13 @@ import json
 import logging
 import os
 import re
-from datetime import datetime
 
-from homeassistant.helpers.entity import DeviceInfo, Entity
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTR_PERIPH_ID, DOMAIN, EEDOMUS_TO_HA_ATTR_MAPPING
+from .const import DOMAIN
 from .device_mapping import load_and_merge_yaml_mappings, load_yaml_mappings
-from .mapping_registry import (
-    get_mapping_registry,
-    print_mapping_summary,
-    print_mapping_table,
-    register_device_mapping,
-)
+from .mapping_registry import register_device_mapping
 from .mapping_rules import evaluate_conditions
 
 _LOGGER = logging.getLogger(__name__)
@@ -119,19 +113,9 @@ except Exception as e:
 
     _LOGGER.error("❌ DEVICE_MAPPINGS set to fallback: %s", DEVICE_MAPPINGS)
 
-# Load name patterns for device name matching
-try:
-    # Try to get YAML config via coordinator if available (uses cached async-loaded config)
-    if "coordinator" in locals() and hasattr(coordinator, "get_yaml_config_sync"):
-        yaml_config = coordinator.get_yaml_config_sync()
-    else:
-        # Fallback to synchronous loading (during initialization)
-        yaml_config = load_yaml_mappings()  # Sync loading
-    NAME_PATTERNS = yaml_config.get("name_patterns", []) if yaml_config else []
-    _LOGGER.info("Loaded %d name patterns from YAML configuration", len(NAME_PATTERNS))
-except Exception as e:
-    _LOGGER.error("Failed to load name patterns: %s", e)
-    NAME_PATTERNS = []
+# Utilise directement les données déjà chargées dans DEVICE_MAPPINGS
+NAME_PATTERNS = DEVICE_MAPPINGS.get("name_patterns", []) if DEVICE_MAPPINGS else []
+_LOGGER.info("Loaded %d name patterns from YAML configuration", len(NAME_PATTERNS))
 
 
 class EedomusEntity(CoordinatorEntity):
@@ -467,7 +451,7 @@ def map_device_to_ha_entity(
             periph_name,
             periph_id,
             usage_id,
-            f"🎯 Specific device mapping",
+            "🎯 Specific device mapping",
             device_data,
         )
 
@@ -561,7 +545,10 @@ def map_device_to_ha_entity(
                             {
                                 "ha_entity": rule_config["mapping"]["ha_entity"],
                                 "ha_subtype": rule_config["mapping"]["ha_subtype"],
-                                "justification": f"Advanced rule {rule_name}: {rule_config['mapping']['justification']}",
+                                "justification": (
+                                    f"Advanced rule {rule_name}: "
+                                    f"{rule_config['mapping']['justification']}"
+                                ),
                             }
                         )
                         _LOGGER.debug(

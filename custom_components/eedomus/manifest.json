@@ -1,7 +1,7 @@
 {
     "domain": "eedomus",
     "name": "Eedomus Integration",
-    "version": "0.20.2",
+    "version": "0.21.0",
     "documentation": "https://github.com/fmo01/hass-eedomus/blob/main/docs/OPTIONS_DOCUMENTATION.md",
     "issue_tracker": "https://github.com/fmo01/hass-eedomus/issues",
     "category": "Hub",

@@ -8,14 +8,9 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import async_get as async_get_device_registry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -199,7 +194,7 @@ async def async_setup_endpoint_volume_sensors(
 
     # Get or create the main eedomus box device
     # --- MODIFICATION: Utilisation de l'entry_id pour l'identifiant d'appareil et du nom unifié ---
-    box_device = device_registry.async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=coordinator.config_entry.entry_id,
         identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
         name=box_name,

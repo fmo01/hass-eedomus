@@ -107,7 +107,8 @@ async def load_yaml_file_async(hass, file_path: str) -> Optional[Dict[str, Any]]
                             _LOGGER.debug("✅ Found dynamic_entity_properties in YAML")
                         else:
                             _LOGGER.debug(
-                                "⚠️  dynamic_entity_properties section missing from YAML (will be extracted from advanced rules)"
+                                "⚠️  dynamic_entity_properties section missing from YAML "
+                                "(will be extracted from advanced rules)"
                             )
 
                         if "specific_device_dynamic_overrides" in content:
@@ -223,7 +224,8 @@ def load_yaml_file(file_path: str) -> Optional[Dict[str, Any]]:
                     _LOGGER.debug("✅ Found dynamic_entity_properties in YAML")
                 else:
                     _LOGGER.debug(
-                        "⚠️  dynamic_entity_properties section missing from YAML (will be extracted from advanced rules)"
+                        "⚠️  dynamic_entity_properties section missing from YAML "
+                        "(will be extracted from advanced rules)"
                     )
 
                 if "specific_device_dynamic_overrides" in content:
@@ -450,14 +452,6 @@ def merge_yaml_mappings(
         for rule in advanced_rules:
             if isinstance(rule, dict) and "mapping" in rule:
                 mapping = rule["mapping"]
-                # Extract dynamic properties from child_mapping if present
-                if "child_mapping" in rule:
-                    child_mapping = rule["child_mapping"]
-                    for child_usage_id, child_config in child_mapping.items():
-                        if child_config.get("is_dynamic", False):
-                            # This rule defines dynamic children
-                            pass
-
                 # Check if this rule defines dynamic properties
                 if mapping.get("is_dynamic", False):
                     ha_entity = mapping.get("ha_entity")
@@ -676,7 +670,8 @@ def load_and_merge_yaml_mappings(base_path: str = "") -> Dict[str, Any]:
             # Critical check: if dynamic properties are empty, this is a problem
             if not dynamic_props:
                 _LOGGER.error(
-                    "❌ CRITICAL: dynamic_entity_properties is empty! This will cause all devices to be treated as static."
+                    "❌ CRITICAL: dynamic_entity_properties is empty! "
+                    "This will cause all devices to be treated as static."
                 )
                 _LOGGER.error(
                     "❌ Check if YAML file contains dynamic_entity_properties section"

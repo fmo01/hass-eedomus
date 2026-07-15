@@ -17,6 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
+from .mapping_registry import register_device_mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,9 +39,7 @@ async def async_setup_entry(
             )
             coordinator.data[periph_id].update(eedomus_mapping)
             # S'assurer que le mapping est enregistré dans le registre global
-            from .entity import _register_device_mapping
-
-            _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
+            register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
 
     # Second pass: create climate entities
     for periph_id, periph in all_peripherals.items():
@@ -395,8 +394,8 @@ class EedomusClimate(EedomusEntity, ClimateEntity):
             except (ValueError, TypeError):
                 pass
 
-        # Si pas trouvé dans target_temperature ou échec, 
-        #utilisation de votre validation textuelle stricte sur last_value
+        # Si pas trouvé dans target_temperature ou échec,
+        # utilisation de votre validation textuelle stricte sur last_value
         if target_temp is None and "last_value" in periph_data:
             lv_str = str(periph_data["last_value"]).strip()
             if lv_str.replace(".", "", 1).lstrip("-").isdigit():

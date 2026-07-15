@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -99,7 +97,6 @@ class EedomusHistoryProgressSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the current progress percentage."""
-        progress = self.coordinator._history_progress.get(self._periph_id, {})
         total_points = self.coordinator._history_progress.get(self._periph_id, {}).get(
             "total_points", 1
         )
@@ -269,7 +266,7 @@ async def async_setup_history_sensors(
     """Set up history sensors and attach them to the eedomus box device."""
 
     # Get or create the main eedomus box device
-    box_device = device_registry.async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=coordinator.config_entry.entry_id,
         identifiers={(DOMAIN, f"eedomus_box_{coordinator.config_entry.entry_id}")},
         name="Box eedomus",

@@ -4,20 +4,17 @@ Detailed parameter documentation is available in docs/OPTIONS_DOCUMENTATION.md
 """
 
 import logging
-import os
 
 import voluptuous as vol
 import yaml
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers import selector
 
 from .const import (
     CONF_API_HOST,
     CONF_API_PROXY_DISABLE_SECURITY,
     CONF_API_SECRET,
     CONF_API_USER,
-    CONF_CUSTOM_DEVICES,
     CONF_ENABLE_API_EEDOMUS,
     CONF_ENABLE_API_PROXY,
     CONF_ENABLE_HISTORY,
@@ -34,10 +31,9 @@ from .const import (
     DEFAULT_HISTORY_PERIPHERALS_PER_SCAN,
     DEFAULT_HISTORY_RETRY_DELAY,
     DEFAULT_HTTP_REQUEST_TIMEOUT,
-    DEVICE_SCHEMA,
     DOMAIN,
-    UI_OPTIONS_SCHEMA,
 )
+from .storage_mapping import async_load_mapping, async_save_custom_mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +45,6 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
         """Initialize options flow."""
         super().__init__()
         self._config_entry = config_entry
-        self.current_devices = []
         self.yaml_content = ""
         self.hass = None
 
@@ -317,80 +312,53 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            # Save device configuration
-            devices = user_input.get(CONF_CUSTOM_DEVICES, [])
-
-            # Save to custom_mapping.yaml
-            success = await async_save_custom_mapping(
-                self.hass, self.hass.config.config_dir, {"custom_devices": devices}
+            # Update options
+            options = {}
+            # Add API configuration options - ensure config values are preserved
+            current_options = self._copy_config_to_options()
+            options.update(
+                {
+                    CONF_ENABLE_API_EEDOMUS: current_options.get(
+                        CONF_ENABLE_API_EEDOMUS, True
+                    ),
+                    CONF_ENABLE_API_PROXY: current_options.get(
+                        CONF_ENABLE_API_PROXY, False
+                    ),
+                    CONF_ENABLE_HISTORY: current_options.get(
+                        CONF_ENABLE_HISTORY, False
+                    ),
+                    CONF_HISTORY_RETRY_DELAY: current_options.get(
+                        CONF_HISTORY_RETRY_DELAY, DEFAULT_HISTORY_RETRY_DELAY
+                    ),
+                    CONF_HISTORY_PERIPHERALS_PER_SCAN: current_options.get(
+                        CONF_HISTORY_PERIPHERALS_PER_SCAN,
+                        DEFAULT_HISTORY_PERIPHERALS_PER_SCAN,
+                    ),
+                    CONF_SCAN_INTERVAL: current_options.get(CONF_SCAN_INTERVAL, 300),
+                    CONF_ENABLE_SET_VALUE_RETRY: current_options.get(
+                        CONF_ENABLE_SET_VALUE_RETRY, True
+                    ),
+                    CONF_ENABLE_WEBHOOK: current_options.get(CONF_ENABLE_WEBHOOK, True),
+                    CONF_API_PROXY_DISABLE_SECURITY: current_options.get(
+                        CONF_API_PROXY_DISABLE_SECURITY, False
+                    ),
+                    CONF_PHP_FALLBACK_ENABLED: current_options.get(
+                        CONF_PHP_FALLBACK_ENABLED, False
+                    ),
+                    CONF_PHP_FALLBACK_SCRIPT_NAME: current_options.get(
+                        CONF_PHP_FALLBACK_SCRIPT_NAME, "fallback.php"
+                    ),
+                    CONF_PHP_FALLBACK_TIMEOUT: current_options.get(
+                        CONF_PHP_FALLBACK_TIMEOUT, 5
+                    ),
+                    CONF_HTTP_REQUEST_TIMEOUT: current_options.get(
+                        CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT
+                    ),
+                }
             )
-
-            if success:
-                # Update options
-                options = {CONF_CUSTOM_DEVICES: devices}
-                # Add API configuration options - ensure config values are preserved
-                current_options = self._copy_config_to_options()
-                options.update(
-                    {
-                        CONF_ENABLE_API_EEDOMUS: current_options.get(
-                            CONF_ENABLE_API_EEDOMUS, True
-                        ),
-                        CONF_ENABLE_API_PROXY: current_options.get(
-                            CONF_ENABLE_API_PROXY, False
-                        ),
-                        CONF_ENABLE_HISTORY: current_options.get(
-                            CONF_ENABLE_HISTORY, False
-                        ),
-                        CONF_HISTORY_RETRY_DELAY: current_options.get(
-                            CONF_HISTORY_RETRY_DELAY, DEFAULT_HISTORY_RETRY_DELAY
-                        ),
-                        CONF_HISTORY_PERIPHERALS_PER_SCAN: current_options.get(
-                            CONF_HISTORY_PERIPHERALS_PER_SCAN,
-                            DEFAULT_HISTORY_PERIPHERALS_PER_SCAN,
-                        ),
-                        CONF_SCAN_INTERVAL: current_options.get(
-                            CONF_SCAN_INTERVAL, 300
-                        ),
-                        CONF_ENABLE_SET_VALUE_RETRY: current_options.get(
-                            CONF_ENABLE_SET_VALUE_RETRY, True
-                        ),
-                        CONF_ENABLE_WEBHOOK: current_options.get(
-                            CONF_ENABLE_WEBHOOK, True
-                        ),
-                        CONF_API_PROXY_DISABLE_SECURITY: current_options.get(
-                            CONF_API_PROXY_DISABLE_SECURITY, False
-                        ),
-                        CONF_PHP_FALLBACK_ENABLED: current_options.get(
-                            CONF_PHP_FALLBACK_ENABLED, False
-                        ),
-                        CONF_PHP_FALLBACK_SCRIPT_NAME: current_options.get(
-                            CONF_PHP_FALLBACK_SCRIPT_NAME, "fallback.php"
-                        ),
-                        CONF_PHP_FALLBACK_TIMEOUT: current_options.get(
-                            CONF_PHP_FALLBACK_TIMEOUT, 5
-                        ),
-                        CONF_HTTP_REQUEST_TIMEOUT: current_options.get(
-                            CONF_HTTP_REQUEST_TIMEOUT, DEFAULT_HTTP_REQUEST_TIMEOUT
-                        ),
-                    }
-                )
-                # Log the options being saved
-                _LOGGER.debug("Saving options in UI mode: %s", options)
-                return self.async_create_entry(title="", data=options)
-            else:
-                errors["base"] = "failed_to_save_yaml"
-
-        # Load current device configuration
-        try:
-            current_mapping = await async_load_mapping(
-                self.hass, self.hass.config.config_dir
-            )
-            current_devices = (
-                current_mapping.get("custom_devices", []) if current_mapping else []
-            )
-        except Exception as e:
-            _LOGGER.error("Error loading mapping: %s", e)
-            current_devices = []
+            # Log the options being saved
+            _LOGGER.debug("Saving options in UI mode: %s", options)
+            return self.async_create_entry(title="", data=options)
 
         # Load current API configuration
         current_options = self._copy_config_to_options()
@@ -399,9 +367,6 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
             step_id="ui",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
-                        CONF_CUSTOM_DEVICES, default=current_devices
-                    ): current_devices,
                     vol.Optional(
                         CONF_ENABLE_API_EEDOMUS,
                         default=current_options.get(CONF_ENABLE_API_EEDOMUS, True),
@@ -461,7 +426,6 @@ class EedomusOptionsFlow(config_entries.OptionsFlow):
     async def async_step_yaml(self, user_input=None):
         """Handle YAML-based configuration."""
         # Local imports to avoid circular dependency
-        from . import async_load_mapping, async_save_custom_mapping
         from .const import YAML_MAPPING_SCHEMA
 
         errors = {}
@@ -582,8 +546,10 @@ custom_devices:
             },
         )
 
+
+"""
     async def async_step_cleanup(self, user_input=None):
-        """Handle cleanup of unused eedomus entities."""
+        " ""Handle cleanup of unused eedomus entities."" "
         _LOGGER.info("Starting cleanup of unused eedomus entities")
 
         # Get entity registry
@@ -654,3 +620,4 @@ custom_devices:
                 "entities_removed": removed_count,
             },
         )
+"""

@@ -9,25 +9,18 @@ from homeassistant.components.light import (
 )
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
-    ATTR_COLOR_MODE,
     ATTR_COLOR_TEMP_KELVIN,
     ATTR_RGBW_COLOR,
     ColorMode,
     LightEntity,
-    LightEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.util.color import (  # color_rgb_to_kelvin,; color_rgb_to_xy,; color_rgbw_to_xy,; color_rgbw_to_temperature,; color_xy_to_color_temperature
-    color_rgb_to_rgbw,
-    color_RGB_to_xy,
-    color_rgbw_to_rgb,
-    color_temperature_to_rgb,
-    value_to_brightness,
-)
+from homeassistant.util.color import color_rgbw_to_rgb
 
 from .const import COORDINATOR, DOMAIN
 from .entity import EedomusEntity, map_device_to_ha_entity
+from .mapping_registry import register_device_mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,13 +42,13 @@ async def async_setup_entry(
             if parent_id not in parent_to_children:
                 parent_to_children[parent_id] = []
             parent_to_children[parent_id].append(periph)
-        if not "ha_entity" in coordinator.data[periph_id]:
+        if "ha_entity" not in coordinator.data[periph_id]:
             eedomus_mapping = map_device_to_ha_entity(
                 periph, coordinator.data, coordinator=coordinator
             )
             coordinator.data[periph_id].update(eedomus_mapping)
             # S'assurer que le mapping est enregistré dans le registre global
-            _register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
+            register_device_mapping(eedomus_mapping, periph["name"], periph_id, periph)
             # Log pour confirmer que le device a été mappé
             _LOGGER.debug(
                 "✅ Light device mapped: %s (%s) → %s:%s",
@@ -87,7 +80,7 @@ async def async_setup_entry(
                     "ha_subtype": "energy",
                     "justification": "Parent is a light - energy consumption meter",
                 }
-            if not eedomus_mapping is None:
+            if eedomus_mapping is not None:
                 coordinator.data[periph_id].update(eedomus_mapping)
                 _LOGGER.debug(
                     "Created energy sensor for light %s (%s) - consumption monitoring",
@@ -278,7 +271,9 @@ class EedomusLight(EedomusEntity, LightEntity):
 
         brightness_percent = periph_data.get("last_value", "0")
 
-        # MODIFICATION : Si c'est une chaîne de couleur (ex: "255,100,50"), l'état d'intensité est considéré comme maximal
+        # MODIFICATION :
+        #    Si c'est une chaîne de couleur (ex: "255,100,50"),
+        #        l'état d'intensité est considéré comme maximal
         if isinstance(brightness_percent, str) and "," in brightness_percent:
             return 255
 
@@ -343,13 +338,14 @@ class EedomusLight(EedomusEntity, LightEntity):
             # Use entity method to turn on light (includes fallback, retry, and state update)
             response = await self.async_set_value(value)
             _LOGGER.debug(
-                "Light %s (%s) turned on with value: %s (brightness: %s%%)",
+                "Light %s (%s) turned on with value: %s (brightness: %s%%). API Response: %s",
                 self._attr_name,
                 self._periph_id,
                 value,
                 self.octal_to_percent(brightness)
                 if brightness is not None
                 else "default",
+                response,
             )
 
         except Exception as e:
@@ -370,10 +366,11 @@ class EedomusLight(EedomusEntity, LightEntity):
 
         except Exception as e:
             _LOGGER.error(
-                "Failed to turn off light %s (%s): %s",
+                "Failed to turn off light %s (%s): %s. API Response: %s",
                 self._attr_name,
                 self._periph_id,
                 e,
+                response,
             )
             raise
 
@@ -489,7 +486,12 @@ class EedomusRGBChildLight(EedomusLight):
             and ColorMode.RGBW in self._attr_supported_color_modes
         ):
             r, g, b, w = kwargs[ATTR_RGBW_COLOR]
-            val_str = f"{self.octal_to_percent(r)},{self.octal_to_percent(g)},{self.octal_to_percent(b)},{self.octal_to_percent(w)}"
+            val_str = (
+                f"{self.octal_to_percent(r)},"
+                f"{self.octal_to_percent(g)},"
+                f"{self.octal_to_percent(b)},"
+                f"{self.octal_to_percent(w)}"
+            )
             await self.coordinator.async_set_periph_value(self._color_child_id, val_str)
 
         # 2. Actionner l'intensité / état sur le périphérique PARENT
@@ -555,7 +557,10 @@ class EedomusRGBWLight(EedomusLight):
             self.coordinator.data[self._periph_id].get("last_value_change", "Unknown"),
             ", ".join(
                 f"{self.coordinator.data[child_id].get('name', child_id)} "
-                f"({self.coordinator.data[child_id].get('usage_name', '?')}-{child_id})[{self.coordinator.data[child_id].get('last_value', '?')} => {self.coordinator.data[child_id].get('last_value_change', '?')}] {self.coordinator.data[child_id].get('ha_entity', '!')}"
+                f"({self.coordinator.data[child_id].get('usage_name', '?')}-{child_id})"
+                f"[{self.coordinator.data[child_id].get('last_value', '?')} => "
+                f"{self.coordinator.data[child_id].get('last_value_change', '?')}] "
+                f"{self.coordinator.data[child_id].get('ha_entity', '!')}"
                 for child_id in self._child_devices.keys()
             ),
         )

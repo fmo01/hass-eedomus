@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timedelta
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -14,6 +16,7 @@ from .const import (
     CONF_HISTORY_RETRY_DELAY,
     CONF_PHP_FALLBACK_ENABLED,
     DEFAULT_ENABLE_SET_VALUE_RETRY,
+    DEFAULT_HISTORY_RETRY_DELAY,
     DEFAULT_PHP_FALLBACK_ENABLED,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -54,7 +57,6 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         self._last_processing_time = 0.0
         self._last_refresh_time = 0.0
         self._last_processed_devices = 0
-        self._refresh_timing_history = []  # Store last 10 refresh times for analysis
 
         # Endpoint-specific timing metrics
         self._endpoint_timings = {
@@ -93,11 +95,21 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         await self._load_history_progress()
 
         # Perform initial full data retrieval including peripherals list and value list
-        (
-            peripherals,
-            peripherals_value_list,
-            peripherals_caract,
-        ) = await self._async_full_data_retreive()
+        try:
+            (
+                peripherals,
+                peripherals_value_list,
+                peripherals_caract,
+            ) = await self._async_full_data_retreive()
+        except Exception as err:
+            _LOGGER.warning(
+                "⚠️ Impossible de contacter la box eedomus lors de l'initialisation (erreur: %s). "
+                "Home Assistant retentera la connexion automatiquement en arrière-plan.",
+                err,
+            )
+            raise ConfigEntryNotReady(
+                f"Impossible de joindre la box eedomus à l'adresse {self.client.host if hasattr(self.client, 'host') else 'configurée'} : {err}"
+            ) from None
 
         # Conversion des listes en dictionnaires
         peripherals_dict = {str(periph["periph_id"]): periph for periph in peripherals}
@@ -119,7 +131,7 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         # Phase 1: Construction complète des données SANS mapping
-        # Cela résout le problème de temporalité où les enfants 
+        # Cela résout le problème de temporalité où les enfants
         # peuvent ne pas être encore dans aggregated_data
         for periph_id in all_periph_ids:
             aggregated_data[periph_id] = {}
@@ -202,9 +214,9 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Log final timing summary for initial refresh (consistent with other refresh types)
         endpoint_details = []
-        for endpoint, time in self._endpoint_timings.items():
-            if time > 0:
-                endpoint_details.append(f"{endpoint}: {time:.3f}s")
+        for endpoint, timing in self._endpoint_timings.items():
+            if timing > 0:
+                endpoint_details.append(f"{endpoint}: {timing:.3f}s")
         endpoint_log = (
             ", ".join(endpoint_details) if endpoint_details else "no endpoints"
         )
@@ -261,7 +273,9 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.info("🗺️ Enhanced Device Mapping Table:")
             _LOGGER.info("=" * 150)
             _LOGGER.info(
-                "| Periph ID   | Device Name                          | Parent ID     | Type       | Subtype         | usage_id | PRODUCT_TYPE_ID | Justification                                  |"
+                "| Periph ID   | Device Name                          "
+                "| Parent ID     | Type       | Subtype         "
+                "| usage_id | PRODUCT_TYPE_ID | Justification                                  |"
             )
             _LOGGER.info("=" * 150)
 
@@ -331,6 +345,11 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         Main update method that decides between full or partial refresh based on timing.
         Implements error handling and fallback to last known good data.
         """
+        # 🚨 MODIFICATION : Utilisation de time.monotonic() pour calculer précisément les durées
+        #                  (insensible aux sauts d'horloge système)
+        start_monotonic = time.monotonic()
+
+        # On conserve start_time (datetime) car il est utilisé pour _last_update_start_time et le _scan_interval
         start_time = datetime.now()
 
         _LOGGER.debug("Update eedomus data")
@@ -358,19 +377,19 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             if self._full_refresh_needed:
-                # Track detailed timing for full refresh
-                api_start = datetime.now()
                 result = await self._async_full_refresh()
-                api_time = (datetime.now() - api_start).total_seconds()
 
-                processing_start = datetime.now()
+                # 🚨 MODIFICATION : Remplacement de datetime.now() par time.monotonic()
+                #                   pour mesurer le temps de traitement
+                processing_start = time.monotonic()
+
                 # Handle both old and new return formats for compatibility
                 if isinstance(result, tuple) and len(result) == 2:
                     aggregated_data, stats = result
-                    processing_time = (
-                        datetime.now() - processing_start
-                    ).total_seconds()
-                    total_time = (datetime.now() - start_time).total_seconds()
+
+                    # 🚨 MODIFICATION : Calcul des durées via monotonic()
+                    processing_time = time.monotonic() - processing_start
+                    total_time = time.monotonic() - start_monotonic
 
                     # Calculate actual API time as sum of all endpoint timings
                     actual_api_time = sum(self._endpoint_timings.values())
@@ -383,15 +402,16 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
 
                     # Log detailed endpoint metrics (timings + data sizes in KB)
                     endpoint_details = []
-                    for endpoint, time in self._endpoint_timings.items():
-                        if time > 0:
+                    # 🚨 MODIFICATION : 'time' renommé en 'timing' pour éviter de masquer le module standard 'time'
+                    for endpoint, timing in self._endpoint_timings.items():
+                        if timing > 0:
                             data_size = self._endpoint_data_sizes.get(endpoint, 0)
                             # Convert bytes to KB for better readability
                             data_size_kb = (
                                 round(data_size / 1024, 1) if data_size > 0 else 0
                             )
                             endpoint_details.append(
-                                f"{endpoint}: {time:.3f}s ({data_size_kb} KB)"
+                                f"{endpoint}: {timing:.3f}s ({data_size_kb} KB)"
                             )
                     endpoint_log = (
                         ", ".join(endpoint_details)
@@ -400,7 +420,9 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                     )
 
                     _LOGGER.info(
-                        "🔄 FULL REFRESH: %d total, %d dynamic, %.3fs total (API: %.3fs, Processing: %.3fs, Endpoints: %s)",
+                        "🔄 FULL REFRESH: %d total, "
+                        "%d dynamic, %.3fs total "
+                        "(API: %.3fs, Processing: %.3fs, Endpoints: %s)",
                         stats["total_peripherals"],
                         stats["dynamic_peripherals"],
                         total_time,
@@ -411,19 +433,20 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                 else:
                     # Fallback for old format
                     aggregated_data = result
-                    processing_time = (
-                        datetime.now() - processing_start
-                    ).total_seconds()
-                    total_time = (datetime.now() - start_time).total_seconds()
+
+                    # 🚨 MODIFICATION : Calcul des durées via monotonic()
+                    processing_time = time.monotonic() - processing_start
+                    total_time = time.monotonic() - start_monotonic
 
                     # Calculate actual API time as sum of all endpoint timings
                     actual_api_time = sum(self._endpoint_timings.values())
 
                     # Log detailed endpoint timings
                     endpoint_details = []
-                    for endpoint, time in self._endpoint_timings.items():
-                        if time > 0:
-                            endpoint_details.append(f"{endpoint}: {time:.3f}s")
+                    # 🚨 MODIFICATION : 'time' renommé en 'timing'
+                    for endpoint, timing in self._endpoint_timings.items():
+                        if timing > 0:
+                            endpoint_details.append(f"{endpoint}: {timing:.3f}s")
                     endpoint_log = (
                         ", ".join(endpoint_details)
                         if endpoint_details
@@ -448,20 +471,24 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
 
                 return aggregated_data
             else:
-                # Track detailed timing for partial refresh
-                api_start = datetime.now()
+                # 🚨 MODIFICATION : Suppression de 'api_start = datetime.now()' qui était du code mort
                 ret = await self._async_partial_refresh()
+
                 # Calculate actual API time as sum of relevant endpoint timings for partial refresh
+                # 🚨 MODIFICATION : Ajout de 'partial_refresh'
+                #                   dans la liste des endpoints pris en compte, car ignoré auparavant
+                # 🚨 MODIFICATION : 'time' renommé en 'timing' dans la boucle
                 actual_api_time = sum(
-                    time
-                    for endpoint, time in self._endpoint_timings.items()
-                    if endpoint in ["get_periph_caract", "set_periph_value"]
+                    timing
+                    for endpoint, timing in self._endpoint_timings.items()
+                    if endpoint
+                    in ["get_periph_caract", "set_periph_value", "partial_refresh"]
                 )
 
-                processing_start = datetime.now()
-                # Minimal processing time for partial refresh
-                processing_time = (datetime.now() - processing_start).total_seconds()
-                total_time = (datetime.now() - start_time).total_seconds()
+                # 🚨 MODIFICATION : Suppression du faux calcul de processing_time (il ne mesurait rien).
+                # On le fixe à 0.0 car le traitement est déjà inclus dans l'attente de _async_partial_refresh()
+                processing_time = 0.0
+                total_time = time.monotonic() - start_monotonic
 
                 # Store timing metrics for sensors
                 self._last_api_time = actual_api_time
@@ -476,11 +503,12 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
 
                 # Log detailed endpoint metrics for partial refresh (timings + data sizes)
                 endpoint_details = []
-                for endpoint, time in self._endpoint_timings.items():
-                    if time > 0:
+                # 🚨 MODIFICATION : 'time' renommé en 'timing'
+                for endpoint, timing in self._endpoint_timings.items():
+                    if timing > 0:
                         data_size = self._endpoint_data_sizes.get(endpoint, 0)
                         endpoint_details.append(
-                            f"{endpoint}: {time:.3f}s ({data_size} items)"
+                            f"{endpoint}: {timing:.3f}s ({data_size} items)"
                         )
                 endpoint_log = (
                     ", ".join(endpoint_details) if endpoint_details else "no endpoints"
@@ -499,8 +527,10 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                     endpoint_log,
                 )
                 return ret
+
         except Exception as err:
-            elapsed = (datetime.now() - start_time).total_seconds()
+            # 🚨 MODIFICATION : Utilisation de monotonic() pour avoir le temps exact écoulé avant l'erreur
+            elapsed = time.monotonic() - start_monotonic
 
             # Handle timeout specifically - don't raise UpdateFailed for timeouts
             if "Request timed out" in str(err):
@@ -519,8 +549,8 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                     "Error updating eedomus after %.3f seconds data: %s", elapsed, err
                 )
                 # Return last known good data if available
-                if hasattr(self, "data") and self.data:
-                    return self.data
+                #if hasattr(self, "data") and self.data:
+                #    return self.data
                 raise UpdateFailed(f"Error updating data: {err}") from err
 
     async def _load_yaml_config_async(self):
@@ -655,8 +685,9 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         )
         return (peripherals, peripherals_value_list, peripherals_caract)
 
+    """
     async def _async_full_refresh_data_retreive(self):
-        """Retrieve only characteristics data for full refresh."""
+        " ""Retrieve only characteristics data for full refresh."" "
         peripherals_caract_response = await self.client.get_periph_caract("all", True)
         if not isinstance(peripherals_caract_response, dict):
             _LOGGER.error(
@@ -676,6 +707,8 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             "Found %d peripherals characteristics in total", len(peripherals_caract)
         )
         return peripherals_caract
+
+    """
 
     async def _async_full_refresh(self):
         """Perform a complete refresh of all peripherals."""
@@ -727,7 +760,7 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         all_periph_ids = set(peripherals_caract_dict.keys())
 
         for periph_id in all_periph_ids:
-            if not periph_id in aggregated_data:
+            if periph_id not in aggregated_data:
                 _LOGGER.warning(
                     "This periph_id is unknown %d, please do a reload", periph_id
                 )
@@ -851,9 +884,7 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
         if not isinstance(peripherals_caract, dict):
-            _LOGGER.warning(
-                "Failed to partial refresh %s: %s", concat_text_periph_id, e
-            )
+            _LOGGER.warning("Failed to partial refresh %s", concat_text_periph_id)
             raise
 
         # Ensure peripherals_caract.get("body") is a list before iterating
@@ -967,11 +998,14 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
         """Return all peripherals (for entity setup)."""
         return self._all_peripherals
 
+    """
     async def request_full_refresh(self):
-        """Request a full refresh of all peripherals."""
+        " ""Request a full refresh of all peripherals."" "
         _LOGGER.debug("Requesting full data refresh")
         self._full_refresh_needed = True
         await self.async_request_refresh()
+
+    """
 
     async def _load_history_progress(self):
         """Charge la progression depuis les states Home Assistant.
@@ -1536,7 +1570,8 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                 ret.get("error", "Unknown error"),
             )
             _LOGGER.error(
-                "💡 Check the documentation for value constraints and consider enabling 'Set Value Retry' in advanced options"
+                "💡 Check the documentation for value constraints and "
+                "consider enabling 'Set Value Retry' in advanced options"
             )
             _LOGGER.error(
                 "📖 Documentation: https://github.com/Dan4Jer/hass-eedomus#value-constraints"
@@ -1553,17 +1588,6 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             # This ensures UI updates instantly without waiting for coordinator refresh
             self.data[periph_id]["last_value"] = value
             return {"success": 1, "value_used": value, "original_value": value}
-
-        # except Exception as e:
-        #    _LOGGER.error(
-        #        "Failed to set value for peripheral '%s': %s\ndata=%s\n\nalldata=%s",
-        #        periph_id,
-        #        e,
-        #        self.data[periph_id],
-        #        self._all_peripherals[periph_id],
-        #        )
-        #    raise
-        # await self.async_request_refresh()
 
     def next_best_value(self, periph_id: str, value: str):
         values_list = self.data.get(periph_id, {}).get("values", [])

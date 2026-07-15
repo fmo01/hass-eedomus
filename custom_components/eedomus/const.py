@@ -1,12 +1,12 @@
 """Constants for the eedomus integration."""
 
-from typing import Any, Dict
-
 # Ensure required imports are available
 import voluptuous as vol
-
 from homeassistant.const import Platform
+
+"""
 from homeassistant.helpers import config_validation as cv
+"""
 
 try:
     from .private_const import DEFAULT_API_HOST, DEFAULT_API_SECRET, DEFAULT_API_USER
@@ -38,12 +38,8 @@ CONF_PHP_FALLBACK_SCRIPT_NAME = "php_fallback_script_name"
 CONF_PHP_FALLBACK_TIMEOUT = "php_fallback_timeout"
 
 # YAML Mapping Configuration
-CONF_YAML_MAPPING = "yaml_mapping"
-CONF_CUSTOM_MAPPING_FILE = "custom_mapping_file"
-CONF_RELOAD_MAPPING = "reload_mapping"
 DEFAULT_CONF_ENABLE_API_EEDOMUS = True  # Enable Eedomus API integration
-DEFAULT_CONF_ENABLE_API_PROXY = False
-DEFAULT_ENABLE_API_PROXY = False  # API Proxy disabled by default in options
+DEFAULT_CONF_ENABLE_API_PROXY = False  # API Proxy disabled by default in options
 DEFAULT_CONF_ENABLE_HISTORY = False  # History disabled by default (temporarily)
 DEFAULT_ENABLE_HISTORY = False  # History disabled by default (temporarily)
 DEFAULT_HISTORY_RETRY_DELAY = (
@@ -76,44 +72,9 @@ PLATFORMS = [
     # Battery sensors are implemented as SENSOR platform with device_class="battery"
 ]
 
-# Attributes
-ATTR_VALUE_LIST = "value_list"
-ATTR_HISTORY = "history"
-ATTR_PERIPH_ID = "periph_id"
-ATTR_LAST_UPDATED = "last_updated"
-
-# Mapping of eedomus peripheral data keys to Home Assistant attributes.
-# Key: eedomus data key.
-# Value: Home Assistant attribute key.
-# Note: If multiple eedomus keys map to the same HA key, the last one takes precedence.
-EEDOMUS_TO_HA_ATTR_MAPPING = {
-    ATTR_VALUE_LIST: ATTR_VALUE_LIST,
-    "name": "name",
-    "room_name": "room",
-    "value_type": "type",
-    "usage_id": "usage_id",
-    "usage_name": "usage_name",
-    "last_value": "last_value",
-    "last_value_text": "last_value_text",
-    "last_value_change": "last_value_change",
-    "creation_date": "creation_date",
-    #    "values" : "values", #all values from value_list
-}
-
 # Domain
 DOMAIN = "eedomus"
 COORDINATOR = "coordinator"
-
-
-# Device classes for sensors
-SENSOR_DEVICE_CLASSES = {
-    "temperature": "temperature",
-    "humidity": "humidity",
-    "power": "power",
-    "energy": "energy",
-    "voltage": "voltage",
-    "current": "current",
-}
 
 # Schema for config flow (do not modify)
 STEP_USER_DATA_SCHEMA = {
@@ -122,32 +83,10 @@ STEP_USER_DATA_SCHEMA = {
     "api_secret": str,
 }
 
-
-# Table de correspondance entre les classes eedomus et les entités Home Assistant
-CLASS_MAPPING: Dict[str, Dict[str, Any]] = {
-    "39:1": {"ha_entity": "light", "attributes": {"color_mode": "brightness"}},
-    "96:3": {"ha_entity": "light", "attributes": {"color_mode": "rgbw"}},
-    "96:4": {"ha_entity": "light", "attributes": {"color_mode": "rgbw"}},
-    "38:1": {"ha_entity": "sensor", "attributes": {"device_class": "humidity"}},
-    "38:3": {"ha_entity": "sensor", "attributes": {"device_class": "humidity"}},
-    "50:2": {"ha_entity": "sensor", "attributes": {"device_class": "pressure"}},
-    "50:3": {"ha_entity": "sensor", "attributes": {"device_class": "pressure"}},
-    "49:2": {"ha_entity": "sensor", "attributes": {"device_class": "wind_speed"}},
-    "51:1": {"ha_entity": "sensor", "attributes": {"device_class": "illuminance"}},
-    "114:1": {"ha_entity": "sensor", "attributes": {"device_class": "temperature"}},
-    "134:1": {"ha_entity": "sensor", "attributes": {"device_class": "battery"}},
-    "133:2": {"ha_entity": "binary_sensor", "attributes": {"device_class": "moisture"}},
-    "37:1": {"ha_entity": "switch", "attributes": {}},
-    "48:1": {"ha_entity": "binary_sensor", "attributes": {"device_class": "motion"}},
-    "32:1": {"ha_entity": "switch", "attributes": {}},
-    "142:2": {"ha_entity": "cover", "attributes": {}},
-    # ... (ajoute les autres classes ici)
-}
-
 # YAML Mapping Configuration Constants
-CONF_CUSTOM_DEVICES = "custom_devices"
 CONF_YAML_CONTENT = "yaml_content"
 
+"""
 # Device Mapping Schema
 DEVICE_SCHEMA = vol.Schema(
     {
@@ -163,6 +102,7 @@ DEVICE_SCHEMA = vol.Schema(
         vol.Optional("justification", default=""): str,
     }
 )
+"""
 
 # Schema for YAML files
 YAML_MAPPING_SCHEMA = vol.Schema(
@@ -174,13 +114,5 @@ YAML_MAPPING_SCHEMA = vol.Schema(
         vol.Optional("specific_device_dynamic_overrides"): dict,
         vol.Optional("specific_device_mappings"): dict,
         vol.Optional("name_patterns"): list,
-        vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
-    }
-)
-
-# Schema for UI options
-UI_OPTIONS_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONF_CUSTOM_DEVICES): vol.All(cv.ensure_list, [DEVICE_SCHEMA]),
     }
 )
