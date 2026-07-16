@@ -1,7 +1,7 @@
 # Intégration eedomus pour Home Assistant
 [![HACS Validated](https://img.shields.io/badge/HACS-Validated-green.svg)](https://github.com/hacs/integration)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-0.21.0-blue.svg)](https://github.com/fmo01/hass-eedomus/releases/tag/v0.14.2)
+[![Version](https://img.shields.io/badge/version-0.21.0-blue.svg)](https://github.com/fmo01/hass-eedomus/releases/tag/v0.21.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/fmo01/hass-eedomus/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/fmo01/hass-eedomus?label=latest)](https://github.com/fmo01/hass-eedomus/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/fmo01/hass-eedomus/total?logo=github&style=flat-square)](https://github.com/fmo01/hass-eedomus/releases/latest)
@@ -93,31 +93,6 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 
 [📖 Documentation complète de la fonctionnalité de nettoyage](docs/CLEANUP_FEATURE.md)
 
-### Via HACS (Recommended)
-1. In HACS config go to the 3 dots in top left then GitHub
-2. Add a custom repository with URL: https://github.com/fmo01/hass-eedomus
-3. Go to **HACS** > **Integrations**
-4. Search for "Eedomus"
-5. Click **Install**
-6. Restart Home Assistant
-
-### Manual Installation
-1. Download the latest version from [GitHub Releases](https://github.com/fmo01/hass-eedomus/releases)
-2. Extract the file to `custom_components/eedomus/`
-3. Restart Home Assistant
-
-### Configuration
-1. Go to **Settings** > **Devices & Services**
-2. Click **Add Integration**
-3. Search for "Eedomus"
-4. Enter your eedomus API credentials
-5. Configure options according to your needs
-
-### Updating
-- **Via HACS**: Automatic update notification when new version available
-- **Manual**: Download new version and replace files in `custom_components/eedomus/`
-- **Always**: Check release notes for breaking changes
-
 ## 🎯 Fonctionnalités principales
 
 - **Gestion complète** de vos 30+ périphériques Z-Wave et 4-5 Zigbee
@@ -128,31 +103,6 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 - **Architecture modulaire** suivant les bonnes pratiques Home Assistant
 - **Tests complets** pour toutes les entités (covers, switches, lights, sensors)
 - **Configuration YAML avancée** pour une personnalisation complète
-
-## 📦 Installation and Update
-
-### Via HACS
-1. In HACS config go in the 3 dots in top left then GitHub
-<img width="273" height="484" alt="3dots" src="https://github.com/user-attachments/assets/bac2ca18-463e-4e49-a57b-2d73bc8b219c" />
-
-2. Then add a custom repository
-<img width="318" height="469" alt="custom" src="https://github.com/user-attachments/assets/dbf5c1be-46b0-412d-8497-300b9ad9840a" />
-
-3.  click on add after set the right url https://github.com/fmo01/hass-eedomus
-4. Go to **HACS** > **Integrations**
-5. Search for "Eedomus"
-6. Click **Install**
-
-### Manual
-1. Download the latest version from [GitHub Releases](https://github.com/fmo01/hass-eedomus/releases)
-2. Extract the file to `custom_components/eedomus/`
-4. Restart Home Assistant
-
-### Configuration
-1. Go to **Settings** > **Devices & Services**
-2. Click **Add Integration**
-4. Search for "Eedomus"
-7. Configure options according to your needs
 
 ## 🎯 YAML Mapping Configuration
 
