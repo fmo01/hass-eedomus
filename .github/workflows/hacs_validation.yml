@@ -1,4 +1,4 @@
-name: HACS Validate 2
+name: HACS Validate
 on:
   push:
     branches: [ main, unstable ]
