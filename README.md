@@ -27,31 +27,54 @@ Si vous n'avez pas encore HACS installé, suivez ces étapes:
 1. **Méthode recommandée**: Via le [script automatique HACS](https://hacs.xyz/docs/setup/download)
 2. **Méthode manuelle**: Suivez le [guide officiel HACS](https://hacs.xyz/docs/setup/prerequisites)
 3. Redémarrez Home Assistant après l'installation
+## 🚀 Installation
 
-### Via HACS (Méthode recommandée)
-1. Dans HACS, allez dans les 3 points en haut à gauche puis "GitHub"
-2. Ajoutez un dépôt personnalisé avec l'URL: https://github.com/fmo01/hass-eedomus
-3. Allez dans **HACS** > **Intégrations**
-4. Recherchez "Eedomus"
-5. Cliquez sur **Installer**
-6. Redémarrez Home Assistant
+### Méthode 1 : Via HACS (Recommandée)
 
-### Installation manuelle
-1. Téléchargez la dernière version depuis [GitHub Releases] (https://github.com/fmo01/hass-eedomus)
-2. Extrayez le fichier dans `custom_components/eedomus/`
-3. Redémarrez Home Assistant
+Si HACS est installé sur votre instance, cliquez simplement sur le bouton ci-dessous pour ouvrir directement le dépôt et lancer l'installation :
 
-### Configuration
-1. Allez dans **Réglages** > **Appareils et Services**
-2. Cliquez sur **Ajouter une intégration**
-3. Recherchez "Eedomus"
-4. Entrez vos identifiants API eedomus
-5. Configurez les options selon vos besoins
+[![Ouvrir votre instance Home Assistant et ajouter le dépôt eedomus](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=fmo01&repository=hass-eedomus&category=integration)
+
+*Si le bouton ne fonctionne pas :*
+1. Allez dans **HACS** > **Intégrations**.
+2. Cliquez sur les trois petits points en haut à droite et choisissez **Dépôts personnalisés** (*Custom repositories*).
+3. Collez l'URL de ce dépôt GitHub : `https://github.com/fmo01/hass-eedomus`
+4. Sélectionnez la catégorie **Intégration** et cliquez sur **Ajouter**.
+
+---
+
+### Méthode 2 : Installation Manuelle (Alternative)
+
+Si vous n'utilisez pas HACS, vous pouvez installer l'intégration manuellement :
+
+1. Téléchargez le code source de la dernière version (fichier zip).
+2. Créez un dossier nommé `eedomus` à l'intérieur du dossier `custom_components` de votre Home Assistant.
+3. Copiez le contenu du dossier `custom_components/eedomus` de l'archive téléchargée dans ce nouveau dossier.
+4. Votre arborescence doit ressembler à ceci : `<config>/custom_components/eedomus/`
+5. **Redémarrez Home Assistant.**
+
+---
+   
+## ⚙️ Configuration
+
+Une fois l'intégration installée et **Home Assistant redémarré**, vous pouvez configurer vos appareils Eedomus en un clic :
+
+[![Ajouter l'intégration Eedomus sur votre instance Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=eedomus)
+
+*Si le bouton ne fonctionne pas (configuration manuelle) :*
+1. Dans Home Assistant, allez dans **Réglages** > **Appareils et Services**.
+2. En bas à droite, cliquez sur le bouton **Ajouter une intégration**.
+3. Recherchez **Eedomus** dans la barre de recherche.
+4. Entrez vos identifiants API Eedomus et validez.
+
+---
 
 ### Mise à jour
 - **Via HACS**: Notification automatique des nouvelles versions
 - **Manuelle**: Téléchargez la nouvelle version et remplacez les fichiers dans `custom_components/eedomus/`
 - **Conseil**: Consultez toujours les notes de version pour les changements importants
+
+---
 
 ## 🎯 Fonctionnalités de la v0.14.2
 
