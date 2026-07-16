@@ -1,6 +1,12 @@
 name: Validate HACS
-on: [push, pull_request]
-workflow_dispatch: # Permet le déclenchement manuel
+on:
+  push:
+    branches: [ main, unstable ]
+  pull_request:
+    branches: [ main, unstable ]
+  workflow_dispatch: # Permet le déclenchement manuel
+
+
 jobs:
   validate:
     runs-on: "ubuntu-latest"
