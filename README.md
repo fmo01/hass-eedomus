@@ -1,10 +1,9 @@
 # Intégration eedomus pour Home Assistant
-[![HACS Validated](https://img.shields.io/badge/HACS-Validated-green.svg)](https://github.com/hacs/integration)
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-0.21.0-blue.svg)](https://github.com/fmo01/hass-eedomus/releases/tag/v0.21.0)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/fmo01/hass-eedomus/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/v/release/fmo01/hass-eedomus?label=latest)](https://github.com/fmo01/hass-eedomus/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/fmo01/hass-eedomus/total?logo=github&style=flat-square)](https://github.com/fmo01/hass-eedomus/releases/latest)
+[![HACS Validated](https://img.shields.io/badge/HACS-Validated-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/v/release/fmo01/hass-eedomus?style=for-the-badge&color=blue)](https://github.com/fmo01/hass-eedomus/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/fmo01/hass-eedomus/total?style=for-the-badge&color=green)](https://github.com/fmo01/hass-eedomus/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey.svg?style=for-the-badge)](https://github.com/fmo01/hass-eedomus/blob/main/LICENSE)
 
 **hass-eedomus** : synchronise la box **eedomus** avec **Home Assistant**, simplement et sans compromis.
 
