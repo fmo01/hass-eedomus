@@ -3,6 +3,7 @@ name: Validate with hassfest
 on:
   push:
   pull_request:
+  workflow_dispatch: # Permet le déclenchement manuel
   schedule:
     - cron:  '0 0 * * *'
 
