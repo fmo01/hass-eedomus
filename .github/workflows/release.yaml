@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: 🚀 Création de la Release GitHub
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # Génère automatiquement le changelog basé sur tes commits !
           generate_release_notes: true
