@@ -8,8 +8,8 @@ import pytest
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import UnitOfEnergy
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "custom_components/eedomus")))
-from sensor import EedomusEnergySensor
+#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "custom_components/eedomus")))
+from custom_components.eedomus.sensor import EedomusEnergySensor
 
 
 @pytest.mark.asyncio

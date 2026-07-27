@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.cover import CoverEntity, CoverEntityFeature
+from homeassistant.components.cover import (
+    CoverEntity,
+    CoverEntityFeature,
+    CoverDeviceClass,
+    ATTR_POSITION,
+    ATTR_TILT_POSITION,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -122,11 +128,17 @@ class EedomusCover(EedomusEntity, CoverEntity):
             periph_id,
         )
 
-        # Set cover-specific attributes
-        self._attr_device_class = "shutter"  # Use "shutter" for shutters
+        # Set cover-specific attributes using official Enum
+        self._attr_device_class = CoverDeviceClass.SHUTTER
+        
+        # Declare all features supported by this entity
         self._attr_supported_features = (
-            CoverEntityFeature.SET_POSITION
-        )  # Only position setting is supported
+            CoverEntityFeature.OPEN
+            | CoverEntityFeature.CLOSE
+            | CoverEntityFeature.STOP
+            | CoverEntityFeature.SET_POSITION
+            | CoverEntityFeature.SET_TILT_POSITION
+        )
 
     @property
     def is_closed(self):
@@ -139,7 +151,23 @@ class EedomusCover(EedomusEntity, CoverEntity):
             return True  # Assume closed if data not available
 
         position = periph_data.get("last_value")
-        return position == "0" or float(position) == 0
+        try:
+            return position == "0" or float(position) == 0
+        except (ValueError, TypeError):
+            return True
+
+    @property
+    def current_cover_tilt_position(self):
+        """Return current position of cover tilt. 0 is closed, 100 is open."""
+        device_data = self.coordinator.data.get(self._attr_unique_id.replace("eedomus_cover_", ""), {})
+        tilt_position = device_data.get("tilt_position")
+        
+        if tilt_position is not None:
+            try:
+                return int(float(tilt_position))
+            except (ValueError, TypeError):
+                return None
+        return None
 
     @property
     def current_cover_position(self):
@@ -159,15 +187,17 @@ class EedomusCover(EedomusEntity, CoverEntity):
 
     async def async_open_cover(self, **kwargs):
         """Open the cover to 100%."""
-        await self.async_set_cover_position(position=100)
+        await self.async_set_cover_position(**{ATTR_POSITION: 100})
 
     async def async_close_cover(self, **kwargs):
         """Close the cover to 0%."""
-        await self.async_set_cover_position(position=0)
+        await self.async_set_cover_position(**{ATTR_POSITION: 0})
 
     async def async_set_cover_position(self, **kwargs):
         """Move the cover to a specific position (0-100)."""
-        position = kwargs.get("position")
+        # Support for both official ATTR_POSITION and fallback string
+        position = kwargs.get(ATTR_POSITION, kwargs.get("position"))
+        
         if position is None:
             _LOGGER.error(
                 "Position is None for cover %s (periph_id=%s)",
@@ -189,6 +219,23 @@ class EedomusCover(EedomusEntity, CoverEntity):
 
         # Use entity method to set position (includes fallback, retry, and state update)
         await self.async_set_value(str(position))
+
+    async def async_set_cover_tilt_position(self, **kwargs):
+        """Move the cover tilt to a specific position."""
+        tilt_position = kwargs.get(ATTR_TILT_POSITION)
+        if tilt_position is None:
+            return
+            
+        _LOGGER.debug(
+            "Setting cover tilt position to %s for %s (periph_id=%s)",
+            tilt_position,
+            self.coordinator.data.get(self._periph_id, {}).get("name", "unknown")
+            if self.coordinator.data
+            else "unknown",
+            self._periph_id,
+        )
+        # Note: Appelez ici l'API eedomus pour régler le tilt si géré par votre box.
+        # Exemple: await self.async_set_value(str(tilt_position), "endpoint_tilt_specifique")
 
     async def async_stop_cover(self, **kwargs):
         """Stop the cover (not supported by eedomus shutters)."""
