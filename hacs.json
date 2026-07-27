@@ -1,4 +1,6 @@
 {
   "name": "Eedomus",
-  "homeassistant": "2026.1.0"
+  "country": "FR",
+  "render_readme": true,
+  "homeassistant": "2026.4.0"
 }
