@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.cover import (
-    CoverEntity,
-    CoverEntityFeature,
-    CoverDeviceClass,
     ATTR_POSITION,
     ATTR_TILT_POSITION,
+    CoverDeviceClass,
+    CoverEntity,
+    CoverEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -130,7 +130,7 @@ class EedomusCover(EedomusEntity, CoverEntity):
 
         # Set cover-specific attributes using official Enum
         self._attr_device_class = CoverDeviceClass.SHUTTER
-        
+
         # Declare all features supported by this entity
         self._attr_supported_features = (
             CoverEntityFeature.OPEN
@@ -159,9 +159,11 @@ class EedomusCover(EedomusEntity, CoverEntity):
     @property
     def current_cover_tilt_position(self):
         """Return current position of cover tilt. 0 is closed, 100 is open."""
-        device_data = self.coordinator.data.get(self._attr_unique_id.replace("eedomus_cover_", ""), {})
+        device_data = self.coordinator.data.get(
+            self._attr_unique_id.replace("eedomus_cover_", ""), {}
+        )
         tilt_position = device_data.get("tilt_position")
-        
+
         if tilt_position is not None:
             try:
                 return int(float(tilt_position))
@@ -197,7 +199,7 @@ class EedomusCover(EedomusEntity, CoverEntity):
         """Move the cover to a specific position (0-100)."""
         # Support for both official ATTR_POSITION and fallback string
         position = kwargs.get(ATTR_POSITION, kwargs.get("position"))
-        
+
         if position is None:
             _LOGGER.error(
                 "Position is None for cover %s (periph_id=%s)",
@@ -225,7 +227,7 @@ class EedomusCover(EedomusEntity, CoverEntity):
         tilt_position = kwargs.get(ATTR_TILT_POSITION)
         if tilt_position is None:
             return
-            
+
         _LOGGER.debug(
             "Setting cover tilt position to %s for %s (periph_id=%s)",
             tilt_position,
