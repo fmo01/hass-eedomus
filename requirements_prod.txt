@@ -2,5 +2,5 @@
 # These are also specified in manifest.json but provided here for reference
 
 # Core dependencies
-aiohttp>=3.8
-yarl>=1.8
+aiohttp>=3.14.3
+yarl>=1.24.5
