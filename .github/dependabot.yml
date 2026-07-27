@@ -7,6 +7,10 @@ updates:
       interval: "weekly"  # Vérifie les mises à jour chaque semaine
     open-pull-requests-limit: 5  # Limite le nombre de PR ouvertes
     #target-branch: "unstable"  # Cible la branche unstable (ta branche de dev)
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"  # Regroupe toutes les dépendances (prod + dev) en 1 seule PR
     labels:
       - "dependencies"
       - "automated"
@@ -18,7 +22,7 @@ updates:
 
   # Mise à jour des GitHub Actions (workflows CI)
   - package-ecosystem: "github-actions"
-    directory: "/.github/workflows"  # Dossier des workflows
+    directory: "/"  # Dossier des workflows
     schedule:
       interval: "monthly"  # Moins fréquent pour les actions
     open-pull-requests-limit: 3
