@@ -25,13 +25,16 @@ async_setup_platform
 async_setup_entry
 async_turn_on
 async_turn_off
+async_stop_cover
+async_set_hvac_mode
+# --- cover ---
 async_open_cover
 async_close_cover
 is_closed
 current_cover_position
-async_stop_cover
-async_set_hvac_mode
-# -- climate ---
+current_cover_tilt_position
+async_set_cover_tilt_position
+# --- climate ---
 available
 temperature_unit
 # --- light ---
