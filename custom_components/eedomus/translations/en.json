@@ -1,35 +1,67 @@
 {
-  "title": "Eedomus",
   "config": {
     "step": {
       "user": {
-        "title": "Connect to eedomus",
-        "description": "Configure access to your eedomus box",
+        "title": "Connect to your Eedomus box",
         "data": {
-            "host": "Box IP address",
-            "api_key": "API Key",
-            "secret": "Secret API",
-            "history": "Enable history retrieval mode from cloud",
-            "php_fallback": "Enable PHP fallback for rejected values",
-            "scan_interval": "Data refresh interval (seconds)",
-            "enable_api_proxy": "Enable API proxy mode"
+          "api_host": "API Host / IP Address",
+          "api_user": "API Username",
+          "api_secret": "API Password",
+          "enable_api_eedomus": "Enable Eedomus API mode",
+          "enable_api_proxy": "Enable API Proxy mode",
+          "scan_interval": "Scan interval (seconds)",
+          "enable_history": "Enable history retrieval",
+          "history": "History retrieval",
+          "history_retry_delay_hours": "Retry delay (hours)",
+          "history_peripherals_per_scan": "Peripherals per scan",
+          "enable_set_value_retry": "Enable update retry",
+          "max_retries": "Maximum number of retries",
+          "enable_webhook": "Enable webhook",
+          "api_proxy_disable_security": "Disable API Proxy security (Debug)",
+          "php_fallback_enabled": "Enable PHP fallback",
+          "php_fallback_script_name": "PHP fallback script name",
+          "php_fallback_timeout": "PHP fallback timeout (seconds)",
+          "remove_entities_on_uninstall": "Remove entities on uninstall",
+          "http_request_timeout": "HTTP request timeout (seconds)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect to eedomus",
-      "invalid_auth": "Invalid API keys",
-      "connection_timeout": "Connection to eedomus timed out",
-      "api_error": "Eedomus API returned an error",
-      "invalid_response": "Received invalid response from eedomus"
+      "connection_failed": "Connection failed",
+      "invalid_credentials": "Invalid API credentials",
+      "device_not_found": "Device not found",
+      "value_out_of_range": "Value out of range",
+      "unknown": "An unknown error occurred"
     },
-    "options": {
-      "php_fallback_enabled": "PHP Fallback",
-      "php_fallback_script": "PHP script name",
-      "php_fallback_timeout": "PHP fallback timeout (seconds)",
-      "scan_interval": "Refresh interval",
-      "enable_history": "History retrieval",
-      "enable_api_proxy": "API Proxy mode"
+    "abort": {
+      "already_configured": "This Eedomus box is already configured in Home Assistant."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Eedomus Integration Options",
+        "data": {
+          "api_host": "API Host / IP Address",
+          "api_user": "API Username",
+          "api_secret": "API Password",
+          "enable_api_eedomus": "Enable Eedomus API mode",
+          "enable_api_proxy": "Enable API Proxy mode",
+          "scan_interval": "Scan interval (seconds)",
+          "enable_history": "Enable history retrieval",
+          "history": "History retrieval",
+          "history_retry_delay_hours": "Retry delay (hours)",
+          "enable_set_value_retry": "Enable update retry",
+          "max_retries": "Maximum number of retries",
+          "enable_webhook": "Enable webhook",
+          "api_proxy_disable_security": "Disable API Proxy security (Debug)",
+          "php_fallback_enabled": "Enable PHP fallback",
+          "php_fallback_script_name": "PHP fallback script name",
+          "php_fallback_timeout": "PHP fallback timeout (seconds)",
+          "remove_entities_on_uninstall": "Remove entities on uninstall",
+          "http_request_timeout": "HTTP request timeout (seconds)"
+        }
+      }
     }
   }
 }
