@@ -1,17 +1,19 @@
 {
     "domain": "eedomus",
     "name": "Eedomus Integration",
-    "version": "0.21.0",
+    "codeowners": [
+        "@fmo01"
+    ],
+    "config_flow": true,
+    "dependencies": [
+        "http"
+    ],
     "documentation": "https://github.com/fmo01/hass-eedomus/blob/main/docs/OPTIONS_DOCUMENTATION.md",
+    "iot_class": "local_polling",
     "issue_tracker": "https://github.com/fmo01/hass-eedomus/issues",
     "requirements": [
         "aiohttp>=3.8",
         "yarl>=1.8"
     ],
-    "codeowners": ["@fmo01"],
-    "iot_class": "local_polling",
-    "config_flow": true,
-    "dependencies": [
-        "http"
-    ]
+    "version": "0.21.0"
 }
