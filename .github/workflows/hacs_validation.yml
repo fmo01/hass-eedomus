@@ -5,14 +5,15 @@ on:
   pull_request:
     branches: [ main, unstable ]
   workflow_dispatch: # Permet le déclenchement manuel
-
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   validate:
     runs-on: "ubuntu-latest"
     steps:
       - uses: "actions/checkout@v7"
-      - name: HACS Action
+      - name: HACS validation
         uses: "hacs/action@main"
         with:
           category: "integration"
