@@ -12,8 +12,7 @@
     "iot_class": "local_polling",
     "issue_tracker": "https://github.com/fmo01/hass-eedomus/issues",
     "requirements": [
-        "aiohttp>=3.8",
-        "yarl>=1.8"
+        "aiohttp>=3.8"
     ],
     "version": "0.21.0"
 }

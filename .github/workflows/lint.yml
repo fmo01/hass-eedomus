@@ -26,11 +26,10 @@ jobs:
       with:
         python-version: '3.9'
         cache: 'pip'
-    
-    - name: Install linting tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install black==23.12.1 flake8==6.1.0 isort==5.13.2 vulture
+    - name: 📦 Installation des dépendances de dev
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
     
     - name: Run Black
       run: black custom_components/eedomus/

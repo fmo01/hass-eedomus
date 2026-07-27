@@ -23,11 +23,11 @@ jobs:
       with:
         python-version: '3.9'
         cache: 'pip'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-asyncio
+
+    - name: 📦 Installation des dépendances de dev
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt 
     
     - name: Run integration tests
       run: |

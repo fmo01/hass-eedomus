@@ -1,11 +1,9 @@
 [tool.black]
 line-length = 88
 target-version = ['py39']
-include = '\.pyi?$'
 exclude = '''
 /(
     \.git
-  | \.mypy_cache
   | \.tox
   | \.venv
   | build
