@@ -499,13 +499,19 @@ class EedomusSensor(EedomusEntity, SensorEntity):
         # Récupère les attributs définis par la classe parente EedomusEntity (s'il y en a)
         attrs = super().extra_state_attributes
         attrs = dict(attrs) if attrs else {}
-        allowed_attributes = ["history", "value_list", "current_power", "last_reset", "consumption"]
+        allowed_attributes = [
+            "history",
+            "value_list",
+            "current_power",
+            "last_reset",
+            "consumption",
+        ]
 
         if self.coordinator.data is not None:
             periph_data = self.coordinator.data.get(self._periph_id, {})
         else:
             periph_data = {}
-            
+
         for key in allowed_attributes:
             if key in periph_data:
                 attrs[key] = periph_data[key]
