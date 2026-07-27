@@ -4,7 +4,6 @@
     "version": "0.21.0",
     "documentation": "https://github.com/fmo01/hass-eedomus/blob/main/docs/OPTIONS_DOCUMENTATION.md",
     "issue_tracker": "https://github.com/fmo01/hass-eedomus/issues",
-    "category": "Hub",
     "requirements": [
         "aiohttp>=3.8",
         "yarl>=1.8"
@@ -12,9 +11,7 @@
     "codeowners": ["@fmo01"],
     "iot_class": "local_polling",
     "config_flow": true,
-    "options_flow": true,
-    "icon": "https://raw.githubusercontent.com/fmo01/hass-eedomus/main/icons/eedomus.png",
-    "logo": "https://raw.githubusercontent.com/fmo01/hass-eedomus/main/icons/eedomus.png",
-    "render_icon": true,
-    "dependencies": []
+    "dependencies": [
+        "http"
+    ]
 }
