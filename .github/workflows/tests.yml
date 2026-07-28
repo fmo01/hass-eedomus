@@ -3,8 +3,14 @@ name: Run Tests
 on:
   push:
     branches: [ main, unstable ]
+    paths:
+      - 'custom_components/**'
+      - 'scripts/tests/**'
   #pull_request:
   #  branches: [ main, unstable ]
+  #paths:
+  #    - 'custom_components/**'
+  #    - 'scripts/tests/**'
   workflow_dispatch: # Permet le déclenchement manuel
 
 jobs:
