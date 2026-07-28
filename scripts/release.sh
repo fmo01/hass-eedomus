@@ -9,8 +9,17 @@ if [ $# -ne 1 ]; then
 fi
 
 ROOT=$(realpath "$(dirname "$0")/..")
-CUSTOM_COMPONENT="${ROOT}/custom_components/$(ls "${ROOT}/custom_components" | head -n 1)"
-MANIFEST=${CUSTOM_COMPONENT}/manifest.json
+
+# 1. Cherche directement le fichier manifest.json dans custom_components
+MANIFEST=$(find "${ROOT}/custom_components" -name "manifest.json" | head -n 1)
+
+if [ -z "${MANIFEST}" ]; then
+    echo "❌ Erreur : Aucun fichier manifest.json trouvé dans custom_components/"
+    exit 1
+fi
+
+# 2. Récupère le dossier parent du manifest.json
+CUSTOM_COMPONENT=$(dirname "${MANIFEST}")
 
 echo "Setting version to ${1} in ${MANIFEST}"
 cat <<<$(jq ".version=\"${1}\"" "${MANIFEST}") >"${MANIFEST}"
