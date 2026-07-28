@@ -620,9 +620,9 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             datetime.now() - start_time
         ).total_seconds()
         # Store data size in bytes (raw response size from client)
-        self._endpoint_data_sizes[
-            "get_periph_value_list"
-        ] = peripherals_value_list_response.get("_raw_data_size_bytes", 0)
+        self._endpoint_data_sizes["get_periph_value_list"] = (
+            peripherals_value_list_response.get("_raw_data_size_bytes", 0)
+        )
         self._endpoint_call_counts["get_periph_value_list"] += 1
 
         start_time = datetime.now()
@@ -631,9 +631,9 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
             datetime.now() - start_time
         ).total_seconds()
         # Store data size in bytes (raw response size from client)
-        self._endpoint_data_sizes[
-            "get_periph_caract"
-        ] = peripherals_caract_response.get("_raw_data_size_bytes", 0)
+        self._endpoint_data_sizes["get_periph_caract"] = (
+            peripherals_caract_response.get("_raw_data_size_bytes", 0)
+        )
         self._endpoint_call_counts["get_periph_caract"] += 1
 
         _LOGGER.debug(
@@ -1172,9 +1172,11 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.info(
                     "History fully fetched for %s (%s) (received %d entries)",
                     periph_id,
-                    self.data[periph_id]["name"]
-                    if periph_id in self.data
-                    else "Unknown",
+                    (
+                        self.data[periph_id]["name"]
+                        if periph_id in self.data
+                        else "Unknown"
+                    ),
                     len(chunk),
                 )
 
@@ -1183,9 +1185,11 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.info(
                     "Importing %d historical states for %s (%s)",
                     len(chunk),
-                    self.data[periph_id]["name"]
-                    if periph_id in self.data
-                    else "Unknown",
+                    (
+                        self.data[periph_id]["name"]
+                        if periph_id in self.data
+                        else "Unknown"
+                    ),
                     periph_id,
                 )
 
@@ -1200,9 +1204,11 @@ class EedomusDataUpdateCoordinator(DataUpdateCoordinator):
                         str(state_value),
                         {
                             "last_updated": timestamp.isoformat(),
-                            "friendly_name": self.data[periph_id]["name"]
-                            if periph_id in self.data
-                            else "Unknown",
+                            "friendly_name": (
+                                self.data[periph_id]["name"]
+                                if periph_id in self.data
+                                else "Unknown"
+                            ),
                             "device_class": "timestamp",
                             "state_class": "measurement",
                         },

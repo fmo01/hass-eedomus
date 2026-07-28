@@ -342,9 +342,11 @@ class EedomusLight(EedomusEntity, LightEntity):
                 self._attr_name,
                 self._periph_id,
                 value,
-                self.octal_to_percent(brightness)
-                if brightness is not None
-                else "default",
+                (
+                    self.octal_to_percent(brightness)
+                    if brightness is not None
+                    else "default"
+                ),
                 response,
             )
 

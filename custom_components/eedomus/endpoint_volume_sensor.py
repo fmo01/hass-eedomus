@@ -98,11 +98,11 @@ class EedomusEndpointVolumeSensor(CoordinatorEntity, SensorEntity):
             "endpoint": self._endpoint_name,
             "description": f"Data size returned by {self._endpoint_name} endpoint",
             "unit": "kilobytes",
-            "call_count": self.coordinator._endpoint_call_counts.get(
-                self._endpoint_name, 0
-            )
-            if hasattr(self.coordinator, "_endpoint_call_counts")
-            else 0,
+            "call_count": (
+                self.coordinator._endpoint_call_counts.get(self._endpoint_name, 0)
+                if hasattr(self.coordinator, "_endpoint_call_counts")
+                else 0
+            ),
             "bytes": bytes_value,
             "kilobytes": round(kb_value, 2),
             "megabytes": round(mb_value, 2),

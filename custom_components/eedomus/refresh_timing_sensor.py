@@ -234,11 +234,11 @@ class EedomusEndpointTimingSensor(EedomusRefreshTimingSensor):
                 "description": f"Time spent on {self._endpoint_name} API endpoint",
                 "endpoint": self._endpoint_name,
                 "unit": "seconds",
-                "call_count": self.coordinator._endpoint_call_counts.get(
-                    self._endpoint_name, 0
-                )
-                if hasattr(self.coordinator, "_endpoint_call_counts")
-                else 0,
+                "call_count": (
+                    self.coordinator._endpoint_call_counts.get(self._endpoint_name, 0)
+                    if hasattr(self.coordinator, "_endpoint_call_counts")
+                    else 0
+                ),
             }
         )
         return attrs

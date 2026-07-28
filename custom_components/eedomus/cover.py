@@ -213,9 +213,11 @@ class EedomusCover(EedomusEntity, CoverEntity):
         _LOGGER.debug(
             "Setting cover position to %s for %s (periph_id=%s)",
             position,
-            self.coordinator.data.get(self._periph_id, {}).get("name", "unknown")
-            if self.coordinator.data
-            else "unknown",
+            (
+                self.coordinator.data.get(self._periph_id, {}).get("name", "unknown")
+                if self.coordinator.data
+                else "unknown"
+            ),
             self._periph_id,
         )
 
@@ -231,9 +233,11 @@ class EedomusCover(EedomusEntity, CoverEntity):
         _LOGGER.debug(
             "Setting cover tilt position to %s for %s (periph_id=%s)",
             tilt_position,
-            self.coordinator.data.get(self._periph_id, {}).get("name", "unknown")
-            if self.coordinator.data
-            else "unknown",
+            (
+                self.coordinator.data.get(self._periph_id, {}).get("name", "unknown")
+                if self.coordinator.data
+                else "unknown"
+            ),
             self._periph_id,
         )
         # Note: Appelez ici l'API eedomus pour régler le tilt si géré par votre box.

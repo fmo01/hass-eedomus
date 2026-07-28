@@ -472,7 +472,9 @@ def merge_yaml_mappings(
 
         # Merge extracted properties with existing properties (don't override)
         if dynamic_props:
-            _LOGGER.info("✅ Extracted dynamic properties from rules: %s", dynamic_props)
+            _LOGGER.info(
+                "✅ Extracted dynamic properties from rules: %s", dynamic_props
+            )
             # Merge with existing dynamic properties, don't override
             existing_props = merged.get("dynamic_entity_properties", {})
             merged["dynamic_entity_properties"] = {**existing_props, **dynamic_props}
@@ -679,7 +681,8 @@ def load_and_merge_yaml_mappings(base_path: str = "") -> Dict[str, Any]:
                 _LOGGER.error("❌ Check if YAML file is being loaded correctly")
             else:
                 _LOGGER.info(
-                    "✅ Dynamic entity properties loaded successfully: %s", dynamic_props
+                    "✅ Dynamic entity properties loaded successfully: %s",
+                    dynamic_props,
                 )
 
             if not specific_overrides:
@@ -688,7 +691,8 @@ def load_and_merge_yaml_mappings(base_path: str = "") -> Dict[str, Any]:
                 )
             else:
                 _LOGGER.info(
-                    "✅ Specific device dynamic overrides loaded: %s", specific_overrides
+                    "✅ Specific device dynamic overrides loaded: %s",
+                    specific_overrides,
                 )
 
             return yaml_config

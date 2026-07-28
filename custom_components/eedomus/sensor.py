@@ -189,7 +189,8 @@ async def async_setup_entry(
     if hasattr(coordinator, "_timing_sensors") and coordinator._timing_sensors:
         entities.extend(coordinator._timing_sensors)
         _LOGGER.info(
-            "📊 Added %d refresh timing sensors to Box", len(coordinator._timing_sensors)
+            "📊 Added %d refresh timing sensors to Box",
+            len(coordinator._timing_sensors),
         )
 
     if hasattr(coordinator, "_volume_sensors") and coordinator._volume_sensors:
