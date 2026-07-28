@@ -1,4 +1,4 @@
-name: Scmantic Release
+name: Semantic Release
 
 on:
   push:
