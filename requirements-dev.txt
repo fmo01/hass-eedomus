@@ -1,7 +1,7 @@
 # Development requirements for hass-eedomus
 # This file is for local development and testing purposes
 
--r equirements.txt
+-r requirements.txt
 
 # Home Assistant development (compatible with Python 3.14)
 homeassistant>=2026.6.0
