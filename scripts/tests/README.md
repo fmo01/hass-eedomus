@@ -381,7 +381,7 @@ The following values correspond to the same successful local run mentioned
 above and are not intended to remain permanently current.
 
 <!-- COVERAGE-MODULES-START -->
-Last update: **2026-10-06 15:43:06 Europe/Paris**
+Last update: **2026-10-22 19:01:38 Europe/Paris**
 
 | Component | Statements | Missed | Coverage |
 |---|---:|---:|---:|
@@ -565,14 +565,14 @@ A recent successful local run used:
 
 <!-- TEST-ENV-START -->
 ```text
-Python 3.14.7
+Python 3.14.9
 pytest 9.0.3
 pytest-cov 7.1.0
-pytest-homeassistant-custom-component 0.13.367
+pytest-homeassistant-custom-component 0.13.373
 477 tests collected
 477 tests passed
 92.89% total coverage
-Last test run: 2026-10-06 15:43:06 Europe/Paris
+Last test run: 2026-10-22 19:01:38 Europe/Paris
 ```
 <!-- TEST-ENV-END -->
 
