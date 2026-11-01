@@ -41,7 +41,7 @@ def mock_coordinator():
             "name": "Périphérique Non Mappé",
             "last_value": "1",
             "values": [{"value": "1", "description": "Auto"}],
-            "periph_id": "300"
+            "periph_id": "300",
             # ha_entity manquant pour forcer le passage dans map_device_to_ha_entity
         },
         "400": {
@@ -71,11 +71,12 @@ async def test_async_setup_entry(hass: HomeAssistant, mock_coordinator):
     async_add_entities = MagicMock()
 
     # Patch pour observer la passe 1 (mapping)
-    with patch(
-        "custom_components.eedomus.select.map_device_to_ha_entity"
-    ) as mock_map, patch(
-        "custom_components.eedomus.select.register_device_mapping"
-    ) as mock_register:
+    with (
+        patch("custom_components.eedomus.select.map_device_to_ha_entity") as mock_map,
+        patch(
+            "custom_components.eedomus.select.register_device_mapping"
+        ) as mock_register,
+    ):
         # Simule le mapping manquant pour le périph '300'
         mock_map.return_value = {"ha_entity": "select", "mapped": True}
 

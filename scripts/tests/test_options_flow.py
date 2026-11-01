@@ -242,12 +242,15 @@ async def test_step_yaml_submit_valid(hass: HomeAssistant, mock_config_entry):
 
     valid_yaml_str = "custom_devices:\n  - eedomus_id: '12345'\n    type: 'light'"
 
-    with patch(
-        "custom_components.eedomus.options_flow.async_save_custom_mapping",
-        AsyncMock(return_value=True),
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
-        side_effect=lambda x: x,
+    with (
+        patch(
+            "custom_components.eedomus.options_flow.async_save_custom_mapping",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=lambda x: x,
+        ),
     ):
         result = await flow.async_step_yaml(user_input={"yaml_content": valid_yaml_str})
 
@@ -281,12 +284,15 @@ async def test_step_yaml_submit_invalid_schema(hass: HomeAssistant, mock_config_
 
     valid_yaml_syntax = "custom_devices: 'invalid_type_should_be_list'"
 
-    with patch(
-        "custom_components.eedomus.options_flow.async_load_mapping",
-        AsyncMock(return_value={}),
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
-        side_effect=vol.Invalid("Invalid schema structure"),
+    with (
+        patch(
+            "custom_components.eedomus.options_flow.async_load_mapping",
+            AsyncMock(return_value={}),
+        ),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=vol.Invalid("Invalid schema structure"),
+        ),
     ):
         result = await flow.async_step_yaml(
             user_input={"yaml_content": valid_yaml_syntax}
@@ -301,15 +307,19 @@ async def test_step_yaml_submit_save_failure(hass: HomeAssistant, mock_config_en
     flow = EedomusOptionsFlow.async_get_options_flow(mock_config_entry)
     flow.hass = hass
 
-    with patch(
-        "custom_components.eedomus.options_flow.async_save_custom_mapping",
-        AsyncMock(return_value=False),
-    ), patch(
-        "custom_components.eedomus.options_flow.async_load_mapping",
-        AsyncMock(return_value={}),
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
-        side_effect=lambda x: x,
+    with (
+        patch(
+            "custom_components.eedomus.options_flow.async_save_custom_mapping",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "custom_components.eedomus.options_flow.async_load_mapping",
+            AsyncMock(return_value={}),
+        ),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=lambda x: x,
+        ),
     ):
         result = await flow.async_step_yaml(
             user_input={"yaml_content": "custom_devices: []"}

@@ -99,13 +99,13 @@ async def test_box_initialization_success(coordinator):
         "body": [{"periph_id": "1001", "last_value": "100"}],
     }
 
-    with patch.object(
-        coordinator, "_load_yaml_config_async", new_callable=AsyncMock
-    ), patch.object(
-        coordinator, "_load_history_progress", new_callable=AsyncMock
-    ), patch(
-        "custom_components.eedomus.coordinator.map_device_to_ha_entity",
-        return_value={"ha_entity": "switch"},
+    with (
+        patch.object(coordinator, "_load_yaml_config_async", new_callable=AsyncMock),
+        patch.object(coordinator, "_load_history_progress", new_callable=AsyncMock),
+        patch(
+            "custom_components.eedomus.coordinator.map_device_to_ha_entity",
+            return_value={"ha_entity": "switch"},
+        ),
     ):
         await coordinator.async_config_entry_first_refresh()
 
@@ -120,9 +120,10 @@ async def test_first_refresh_unreachable_box(coordinator):
     """Vérifie la levée de ConfigEntryNotReady si la box est injoignable."""
     coordinator.client.get_periph_list.side_effect = Exception("Timeout de connexion")
 
-    with patch.object(
-        coordinator, "_load_yaml_config_async", new_callable=AsyncMock
-    ), patch.object(coordinator, "_load_history_progress", new_callable=AsyncMock):
+    with (
+        patch.object(coordinator, "_load_yaml_config_async", new_callable=AsyncMock),
+        patch.object(coordinator, "_load_history_progress", new_callable=AsyncMock),
+    ):
         with pytest.raises(ConfigEntryNotReady):
             await coordinator.async_config_entry_first_refresh()
 
@@ -243,15 +244,18 @@ async def test_async_import_history_chunk_fallback(coordinator):
         {"timestamp": "2026-07-30T11:00:00", "value": "22.0"},
     ]
 
-    with patch.object(
-        ServiceRegistry,
-        "async_call",
-        new_callable=AsyncMock,
-        side_effect=Exception("Service recorder non disponible"),
-    ), patch.object(
-        StateMachine,
-        "async_set",
-    ) as mock_async_set:
+    with (
+        patch.object(
+            ServiceRegistry,
+            "async_call",
+            new_callable=AsyncMock,
+            side_effect=Exception("Service recorder non disponible"),
+        ),
+        patch.object(
+            StateMachine,
+            "async_set",
+        ) as mock_async_set,
+    ):
         await coordinator.async_import_history_chunk(
             "12345",
             chunk,
@@ -577,9 +581,12 @@ async def test_coordinator_partial_refresh(hass, coordinator):
 
     mock_partial_result = {"123": {"periph_id": "123", "value": "25"}}
 
-    with patch.object(
-        coordinator, "_async_partial_refresh", return_value=mock_partial_result
-    ), patch.object(coordinator, "_is_dynamic_peripheral", return_value=True):
+    with (
+        patch.object(
+            coordinator, "_async_partial_refresh", return_value=mock_partial_result
+        ),
+        patch.object(coordinator, "_is_dynamic_peripheral", return_value=True),
+    ):
         data = await coordinator._async_update_data()
 
         assert data == mock_partial_result
@@ -611,9 +618,10 @@ async def test_coordinator_async_fetch_history_chunk(hass, coordinator):
     assert coordinator._history_progress[periph_id]["completed"] is True
 
     # On mocke l'appel API ET on force la validation des données à renvoyer True
-    with patch.object(
-        coordinator.client, "get_device_history", return_value=mock_chunk
-    ), patch.object(coordinator, "_validate_history_data", return_value=True):
+    with (
+        patch.object(coordinator.client, "get_device_history", return_value=mock_chunk),
+        patch.object(coordinator, "_validate_history_data", return_value=True),
+    ):
         await coordinator.async_fetch_history_chunk(periph_id)
 
         # Vérification que le statut "completed" est bien passé à True
@@ -634,14 +642,11 @@ async def test_coordinator_async_fetch_history_chunk_parsing(hass, coordinator):
         {"timestamp": "2026-06-01T13:00:00", "value": "22"},
     ]
 
-    with patch.object(
-        coordinator.client, "get_device_history", return_value=mock_chunk
-    ), patch.object(
-        coordinator, "_validate_history_data", return_value=True
-    ), patch.object(
-        coordinator, "_save_history_progress", return_value=None
-    ), patch.object(
-        coordinator, "_create_error_sensors", return_value=None
+    with (
+        patch.object(coordinator.client, "get_device_history", return_value=mock_chunk),
+        patch.object(coordinator, "_validate_history_data", return_value=True),
+        patch.object(coordinator, "_save_history_progress", return_value=None),
+        patch.object(coordinator, "_create_error_sensors", return_value=None),
     ):
         await coordinator.async_fetch_history_chunk(periph_id)
 
@@ -726,10 +731,11 @@ async def test_coordinator_php_fallback_failed_retry(hass, coordinator):
 
     if method_name:
         method = getattr(coordinator, method_name)
-        with patch.object(
-            coordinator, "next_best_value", return_value={"value": "50"}
-        ), patch.object(
-            coordinator.client, "set_periph_value", return_value={"success": 1}
+        with (
+            patch.object(coordinator, "next_best_value", return_value={"value": "50"}),
+            patch.object(
+                coordinator.client, "set_periph_value", return_value={"success": 1}
+            ),
         ):
             # Selon la signature de votre méthode, passez les paramètres simulant l'échec du fallback PHP
             try:
@@ -750,10 +756,11 @@ async def test_coordinator_no_php_fallback_retry(hass, coordinator):
 
     if method_name:
         method = getattr(coordinator, method_name)
-        with patch.object(
-            coordinator, "next_best_value", return_value={"value": "30"}
-        ), patch.object(
-            coordinator.client, "set_periph_value", return_value={"success": 1}
+        with (
+            patch.object(coordinator, "next_best_value", return_value={"value": "30"}),
+            patch.object(
+                coordinator.client, "set_periph_value", return_value={"success": 1}
+            ),
         ):
             try:
                 await method(periph_id, "100", php_fallback=False)

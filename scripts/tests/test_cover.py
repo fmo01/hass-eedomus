@@ -239,10 +239,13 @@ async def test_cover_async_setup_entry():
     def mock_add_entities(new_entities):
         entities.extend(new_entities)
 
-    with patch(
-        "custom_components.eedomus.cover.map_device_to_ha_entity",
-        return_value={"ha_entity": "cover"},
-    ), patch("custom_components.eedomus.cover.register_device_mapping"):
+    with (
+        patch(
+            "custom_components.eedomus.cover.map_device_to_ha_entity",
+            return_value={"ha_entity": "cover"},
+        ),
+        patch("custom_components.eedomus.cover.register_device_mapping"),
+    ):
         await async_setup_entry(hass, entry, mock_add_entities)
 
     assert len(entities) > 0
@@ -394,10 +397,13 @@ async def test_async_setup_entry_slats_child():
     def mock_add_entities(new_entities):
         entities.extend(new_entities)
 
-    with patch(
-        "custom_components.eedomus.cover.map_device_to_ha_entity",
-        return_value={"ha_entity": "cover"},
-    ), patch("custom_components.eedomus.cover.register_device_mapping"):
+    with (
+        patch(
+            "custom_components.eedomus.cover.map_device_to_ha_entity",
+            return_value={"ha_entity": "cover"},
+        ),
+        patch("custom_components.eedomus.cover.register_device_mapping"),
+    ):
         await async_setup_entry(hass, entry, mock_add_entities)
 
     assert len(entities) > 0

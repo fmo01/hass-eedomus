@@ -17,12 +17,16 @@ async def test_async_load_mapping_nominal(hass, tmp_path):
     custom_file = tmp_path / "custom_mapping.yaml"
     custom_file.write_text("devices:\n  switch:\n    name: 'Custom Switch'\n")
 
-    with patch(
-        "custom_components.eedomus.device_mapping.merge_yaml_mappings",
-        return_value={"devices": {"light": {}, "switch": {}}},
-    ) as mock_merge, patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA", side_effect=lambda x: x
-    ) as mock_schema:
+    with (
+        patch(
+            "custom_components.eedomus.device_mapping.merge_yaml_mappings",
+            return_value={"devices": {"light": {}, "switch": {}}},
+        ) as mock_merge,
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=lambda x: x,
+        ) as mock_schema,
+    ):
         result = await async_load_mapping(hass, str(tmp_path))
 
         assert result is not None
@@ -33,11 +37,15 @@ async def test_async_load_mapping_nominal(hass, tmp_path):
 @pytest.mark.asyncio
 async def test_async_load_mapping_missing_custom(hass, tmp_path):
     """Vérifie le comportement lorsque le fichier custom_mapping.yaml est absent (FileNotFoundError géré)."""
-    with patch(
-        "custom_components.eedomus.device_mapping.merge_yaml_mappings",
-        return_value={"devices": {"light": {}}},
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA", side_effect=lambda x: x
+    with (
+        patch(
+            "custom_components.eedomus.device_mapping.merge_yaml_mappings",
+            return_value={"devices": {"light": {}}},
+        ),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=lambda x: x,
+        ),
     ):
         result = await async_load_mapping(hass, str(tmp_path))
         assert result is not None
@@ -47,10 +55,12 @@ async def test_async_load_mapping_missing_custom(hass, tmp_path):
 @pytest.mark.asyncio
 async def test_async_load_mapping_default_yaml_error(hass, tmp_path):
     """Vérifie qu'une erreur YAML sur le fichier par défaut lève bien l'exception."""
-    with patch(
-        "yaml.safe_load", side_effect=yaml.YAMLError("Invalid YAML syntax")
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA", side_effect=lambda x: x
+    with (
+        patch("yaml.safe_load", side_effect=yaml.YAMLError("Invalid YAML syntax")),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=lambda x: x,
+        ),
     ):
         with pytest.raises(yaml.YAMLError):
             await async_load_mapping(hass, str(tmp_path))
@@ -62,12 +72,16 @@ async def test_async_load_mapping_sophisticated_merge_fallback(hass, tmp_path):
     custom_file = tmp_path / "custom_mapping.yaml"
     custom_file.write_text("custom_key: custom_value\n")
 
-    with patch(
-        "custom_components.eedomus.device_mapping.merge_yaml_mappings",
-        side_effect=Exception("Merge crashed"),
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA", side_effect=lambda x: x
-    ) as mock_schema:
+    with (
+        patch(
+            "custom_components.eedomus.device_mapping.merge_yaml_mappings",
+            side_effect=Exception("Merge crashed"),
+        ),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=lambda x: x,
+        ) as mock_schema,
+    ):
         result = await async_load_mapping(hass, str(tmp_path))
         assert result is not None
         assert isinstance(result, dict)
@@ -82,12 +96,15 @@ async def test_async_load_mapping_validation_failure(hass, tmp_path):
     def failing_schema(_):
         raise vol.Invalid("Schema validation error")
 
-    with patch(
-        "custom_components.eedomus.device_mapping.merge_yaml_mappings",
-        return_value={"invalid_key": "data"},
-    ), patch(
-        "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
-        side_effect=failing_schema,
+    with (
+        patch(
+            "custom_components.eedomus.device_mapping.merge_yaml_mappings",
+            return_value={"invalid_key": "data"},
+        ),
+        patch(
+            "custom_components.eedomus.const.YAML_MAPPING_SCHEMA",
+            side_effect=failing_schema,
+        ),
     ):
         with pytest.raises(vol.Invalid):
             await async_load_mapping(hass, str(tmp_path))

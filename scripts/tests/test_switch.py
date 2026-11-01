@@ -331,11 +331,10 @@ async def test_async_setup_entry_switch_patterns():
 
     async_add_entities = MagicMock()
 
-    with patch(
-        "custom_components.eedomus.switch.map_device_to_ha_entity"
-    ) as mock_map, patch(
-        "custom_components.eedomus.switch.register_device_mapping"
-    ) as mock_reg:
+    with (
+        patch("custom_components.eedomus.switch.map_device_to_ha_entity") as mock_map,
+        patch("custom_components.eedomus.switch.register_device_mapping") as mock_reg,
+    ):
         mock_map.return_value = {"ha_entity": "switch", "ha_subtype": "switch"}
 
         await async_setup_entry(mock_hass, mock_entry, async_add_entities)

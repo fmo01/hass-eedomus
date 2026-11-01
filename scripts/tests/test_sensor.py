@@ -1,4 +1,5 @@
 """Tests for Eedomus sensor entities."""
+
 import os
 import sys
 from datetime import datetime
@@ -695,9 +696,11 @@ async def test_remaining_edge_cases_and_system_sensors():
 
     s_precip = EedomusSensor(
         mock_coordinator,
-        "precip_sensor"
-        if "precip_sensor" in mock_coordinator.data
-        else "precip_intensity",
+        (
+            "precip_sensor"
+            if "precip_sensor" in mock_coordinator.data
+            else "precip_intensity"
+        ),
     )
     # Si le device_class est détecté dynamiquement via float/unit[cite: 2]
     assert s_precip.device_class == "precipitation_intensity"
@@ -2365,11 +2368,12 @@ async def test_absolute_final_line_480():
         }
     }
 
-    with patch(
-        "custom_components.eedomus.sensor.map_device_to_ha_entity"
-    ) as mock_map, patch(
-        "custom_components.eedomus.sensor.DEVICE_CLASS_UNITS",
-        {"forced_device_class": "forced_unit"},
+    with (
+        patch("custom_components.eedomus.sensor.map_device_to_ha_entity") as mock_map,
+        patch(
+            "custom_components.eedomus.sensor.DEVICE_CLASS_UNITS",
+            {"forced_device_class": "forced_unit"},
+        ),
     ):
         mock_map.return_value = {
             "ha_entity": "sensor",

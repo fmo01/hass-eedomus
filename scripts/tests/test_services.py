@@ -360,9 +360,10 @@ async def test_cleanup_unused_entities(
         "test_entry_id": EntryDataMock(),
     }
 
-    with patch(
-        "homeassistant.helpers.entity_registry.async_get", return_value=mock_er
-    ), patch("homeassistant.helpers.device_registry.async_get", return_value=mock_dr):
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_er),
+        patch("homeassistant.helpers.device_registry.async_get", return_value=mock_dr),
+    ):
         call = ServiceCall(None, DOMAIN, "cleanup_unused_entities", {})
         result = await registered_services["cleanup_unused_entities"](call)
 
@@ -415,9 +416,10 @@ async def test_cleanup_unused_devices(registered_services):
         "ent_other": MagicMock(device_id="dev4"),
     }
 
-    with patch(
-        "homeassistant.helpers.device_registry.async_get", return_value=mock_dr
-    ), patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_er):
+    with (
+        patch("homeassistant.helpers.device_registry.async_get", return_value=mock_dr),
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_er),
+    ):
         call = ServiceCall(DOMAIN, "cleanup_unused_devices", {})
         result = await registered_services["cleanup_unused_devices"](call)
 

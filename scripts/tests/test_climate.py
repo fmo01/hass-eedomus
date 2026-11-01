@@ -26,8 +26,9 @@ def test_load_yaml_file_success():
       "1":
         ha_entity: "switch"
     """
-    with patch("os.path.exists", return_value=True), patch(
-        "builtins.open", mock_open(read_data=fake_yaml_content)
+    with (
+        patch("os.path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data=fake_yaml_content)),
     ):
         content = load_yaml_file("/fake/path/config.yaml")
         assert content is not None
@@ -102,9 +103,12 @@ def test_load_and_merge_yaml_mappings():
             return mock_base
         return mock_base
 
-    with patch("os.path.exists", return_value=True), patch(
-        "custom_components.eedomus.device_mapping.load_yaml_file",
-        side_effect=mock_load_yaml,
+    with (
+        patch("os.path.exists", return_value=True),
+        patch(
+            "custom_components.eedomus.device_mapping.load_yaml_file",
+            side_effect=mock_load_yaml,
+        ),
     ):
         result = load_and_merge_yaml_mappings()
 
@@ -170,8 +174,8 @@ async def test_climate_set_temperature(
     config_entry = MockConfigEntry(
         domain="eedomus",
         data={
-            "api_host": "192.168.1.50", 
-            "api_user": "user", 
+            "api_host": "192.168.1.50",
+            "api_user": "user",
             "api_secret": "secret",
             "enable_webhook": False,
         },
