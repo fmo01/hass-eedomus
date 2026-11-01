@@ -169,7 +169,12 @@ async def test_climate_set_temperature(
     # Création et initialisation du composant
     config_entry = MockConfigEntry(
         domain="eedomus",
-        data={"api_host": "192.168.1.50", "api_user": "user", "api_secret": "secret"},
+        data={
+            "api_host": "192.168.1.50", 
+            "api_user": "user", 
+            "api_secret": "secret",
+            "enable_webhook": False,
+        },
     )
     config_entry.add_to_hass(hass)
 
@@ -266,6 +271,7 @@ async def test_climate_custom_specific_device_dynamic_overrides(
                 "api_host": "192.168.1.50",
                 "api_user": "user",
                 "api_secret": "secret",
+                "enable_webhook": False,
             },
         )
         config_entry.add_to_hass(hass)
