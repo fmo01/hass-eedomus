@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.4](https://github.com/fmo01/hass-eedomus/compare/0.24.3...0.24.4) (2026-11-12)
+
+### Bug Fixes
+
+* Version homeassistant & pytest-homeassistant-custom-component ([7c5816c](https://github.com/fmo01/hass-eedomus/commit/7c5816cc6192988d9e7884810a281e9ee7f49e2b))
+* Version homeassistant & pytest-homeassistant-custom-component ([d120f80](https://github.com/fmo01/hass-eedomus/commit/d120f8016929a6ae6dd8f20720f50bad34251f14))
+
 ## [0.24.3](https://github.com/fmo01/hass-eedomus/compare/0.24.2...0.24.3) (2026-10-06)
 
 ### Bug Fixes
