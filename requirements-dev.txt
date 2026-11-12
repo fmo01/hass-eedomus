@@ -10,7 +10,7 @@ aiohttp>=3.14.5  # Version corrigée pour les vulnérabilités connues
 
 # Development dependencies
 black==26.10.1
-flake8==7.4.1
+flake8==7.5.0
 isort>=9.0.2
 vulture>=2.16
 #
